@@ -87,3 +87,9 @@ final = Compound(children=[result, result2])
 
 export_stl(final, "baby-gate-latch.stl")
 export_step(final, "baby-gate-latch.step")
+
+try:
+    from ocp_vscode import show
+    show(final)
+except ImportError:
+    pass

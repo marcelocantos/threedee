@@ -70,3 +70,9 @@ result = body
 
 export_stl(result, "machinist-square-mount.stl")
 export_step(result, "machinist-square-mount.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

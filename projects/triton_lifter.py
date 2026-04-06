@@ -52,3 +52,9 @@ result = Compound(children=[
 
 export_stl(result, "triton-lifter.stl")
 export_step(result, "triton-lifter.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

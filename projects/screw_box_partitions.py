@@ -52,3 +52,9 @@ result = partition.part
 
 export_stl(result, "screw-box-partitions.stl")
 export_step(result, "screw-box-partitions.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

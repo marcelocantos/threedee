@@ -67,3 +67,9 @@ result = Compound(children=parts)
 
 export_stl(result, "starlock-holders.stl")
 export_step(result, "starlock-holders.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

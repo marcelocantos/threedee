@@ -123,3 +123,9 @@ result = base_plate(
 
 export_stl(result, "rotary-bearing.stl")
 export_step(result, "rotary-bearing.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

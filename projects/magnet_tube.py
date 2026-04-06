@@ -32,3 +32,9 @@ result = tube + barrier - cavity
 
 export_stl(result, "magnet-tube.stl")
 export_step(result, "magnet-tube.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

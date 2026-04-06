@@ -106,3 +106,9 @@ result = rack.part
 
 export_stl(result, "router-bit-rack.stl")
 export_step(result, "router-bit-rack.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

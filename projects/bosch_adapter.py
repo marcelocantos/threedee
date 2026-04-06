@@ -84,3 +84,9 @@ result = adapter.part.mirror(Plane.XY).moved(Pos(0, 0, hhi))
 
 export_stl(result, "bosch-adapter.stl")
 export_step(result, "bosch-adapter.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

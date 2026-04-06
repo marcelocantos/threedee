@@ -51,3 +51,9 @@ result = outer - inner - upper_cut - slot
 
 export_stl(result, "nailgun-tip.stl")
 export_step(result, "nailgun-tip.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

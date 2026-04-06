@@ -23,3 +23,9 @@ result = Compound(children=[
 
 export_stl(result, "led-stumps.stl")
 export_step(result, "led-stumps.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass

@@ -117,3 +117,9 @@ result = shell - mirror_slot - camera_bore - camera_sq - camera_screws - camera_
 
 export_stl(result, "catflap-rpi.stl")
 export_step(result, "catflap-rpi.step")
+
+try:
+    from ocp_vscode import show
+    show(result)
+except ImportError:
+    pass
