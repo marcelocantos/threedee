@@ -1,1 +1,5 @@
 *.3mf
+export/
+__pycache__/
+*.stl
+*.step

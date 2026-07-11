@@ -1,0 +1,41 @@
+targets:
+  T1.1:
+    name: Project infrastructure supports build123d workflow
+    status: identified
+    value: 1.0
+    cost: 1.0
+    acceptance:
+    - TODO
+    context: '- `Makefile` builds all projects to `export/` - `.gitignore` covers Python/build artifacts - A simple proof-of-concept port validates the approach  **Status**: In progress.'
+    origin: manual
+    discovered: 2026-04-09
+  T1.2:
+    name: All simple parts ported (no external library dependencies)
+    status: identified
+    value: 1.0
+    cost: 1.0
+    acceptance:
+    - TODO
+    context: 'Files: `magnet-tube`, `led-stumps`, `nailgun-tip`, `baby-gate-latch`, `bosch-adapter`, `catflap-rpi`, `rotary-bearing`, `router-bit-rack`.  **Status**: Complete — all 8 files ported and building.'
+    origin: manual
+    discovered: 2026-04-09
+  T1.3:
+    name: BOSL2-dependent parts ported
+    status: identified
+    value: 1.0
+    cost: 1.0
+    acceptance:
+    - TODO
+    context: 'Files: `screw-box-partitions`, `starlock-holders`, `machinist-square-mount`. These use BOSL2 features (offset_sweep, grid_copies, etc.) that need build123d equivalents.  **Status**: Complete — all 3 files ported and building.'
+    origin: manual
+    discovered: 2026-04-09
+  T1.4:
+    name: Gear-dependent parts ported
+    status: identified
+    value: 1.0
+    cost: 1.0
+    acceptance:
+    - TODO
+    context: 'File: `triton-lifter`. Needs a bevel gear implementation in build123d (replacing `gears.scad`).  **Status**: Complete — ported with simplified bevel gear generation. Tooth profile is approximate (box-cut gaps rather than true involute). Functional for 3D printing but may need refinement for precision meshing.'
+    origin: manual
+    discovered: 2026-04-09
