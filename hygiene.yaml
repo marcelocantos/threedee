@@ -1,0 +1,408 @@
+# hygiene.yaml — declared, drift-validated hygiene posture for threedee.
+# Schema: ~/.claude/skills/hygiene/SKILL.md. Validate with `/hygiene`.
+# Personal build123d CAD / 3D-print parts. Floors are held-tier ratchets
+# reality already reaches. Gaps sit above each floor as planned (or skipped
+# where a control will never apply). Grounded in the 2026-08-22 entropy
+# audit and files that exist today.
+
+schema_version: 1
+
+repo: threedee
+aspires: 3
+floors:            # per-dimension held-tier ratchet; below floor => DRIFT
+  correctness: 0   # no tests, no CI; py_compile is syntax-only (ENT-002–004 survive)
+  security: 0      # GitHub secret scanning disabled; no gitleaks/CodeQL
+  quality: 0       # no ruff/format/lint config or gate
+  deps: 0          # no pyproject.toml / lockfile; CAD kernel unpinned (ENT-005)
+  release: 0       # no tags, changelog, or release workflow
+  governance: 0    # .gitignore only; LICENSE and README absent (licenseInfo=null)
+  build: 1         # Makefile all/clean exist; no CI; python unpinned
+  docs: 0          # CLAUDE.md + bullseye.yaml exist; no README
+  perf: 0          # geometry scripts; no runtime to benchmark
+  vcs: 1           # default branch is master; unprotected; no committed hooks
+  agent: 1         # CLAUDE.md + bullseye.yaml; no AGENTS.md
+
+tiers:
+  1: baseline    # LICENSE + README + .gitignore; tests build & run
+  2: maintained  # full matrix, examples run, lint/format, release + governance
+  3: hardened    # formal specs, security scanning, SBOM/signing, fuzzing, perf
+
+items:
+
+  # ============================== CORRECTNESS =============================
+  - id: correctness.py-compile
+    dim: correctness
+    desc: python3 -m py_compile succeeds on projects/*.py
+    state: present
+    cadence: continuous
+    enforce: informational
+    tier: 1
+    evidence: {command: python3 -m py_compile projects/*.py}
+
+  - id: correctness.tests
+    dim: correctness
+    desc: Per-part golden tests (bbox/volume) run on the shipped path
+    state: planned
+    cadence: continuous
+    enforce: blocking
+    tier: 1
+    reason: >-
+      No test tree, no pytest, no CI. py_compile is green while ENT-002
+      (dropped Pos*Shape), ENT-003 (magnet-tube barrier), and ENT-004
+      (catflap offset) remain; syntax is not a printability oracle.
+    evidence: {absent: {file: {path: tests}}}
+
+  - id: correctness.ci
+    dim: correctness
+    desc: Tests run on every push/PR in GitHub Actions
+    state: planned
+    cadence: continuous
+    enforce: blocking
+    tier: 2
+    reason: No .github/workflows.
+    evidence: {absent: {file: {path: .github/workflows}}}
+
+  - id: correctness.fuzzing
+    dim: correctness
+    desc: Fuzz harnesses over parsers or codecs
+    state: skipped
+    cadence: continuous
+    enforce: informational
+    tier: 3
+    reason: Parametric CAD parts with no owned parsers or runtime codecs.
+    evidence: {absent: {ci_job: ci.yml#fuzz}}
+
+  # =========================== SECURITY / SUPPLY ==========================
+  - id: security.github-secret-scan
+    dim: security
+    desc: GitHub secret scanning enabled on the public repo
+    state: planned
+    cadence: continuous
+    enforce: blocking
+    tier: 2
+    reason: security_and_analysis.secret_scanning.status is disabled.
+    evidence:
+      {absent: {gh_setting: {key: security_and_analysis.secret_scanning.status, equals: enabled}}}
+
+  - id: security.push-protection
+    dim: security
+    desc: GitHub secret-scanning push protection enabled
+    state: planned
+    cadence: continuous
+    enforce: blocking
+    tier: 2
+    reason: secret_scanning_push_protection.status is disabled.
+    evidence:
+      {
+        absent: {
+          gh_setting: {
+            key: security_and_analysis.secret_scanning_push_protection.status,
+            equals: enabled,
+          }
+        }
+      }
+
+  - id: security.gitleaks
+    dim: security
+    desc: Secret scanning (gitleaks) in pre-commit and/or CI
+    state: planned
+    cadence: continuous
+    enforce: warning
+    tier: 3
+    reason: No gitleaks config, no CI, no workflows to invoke a scanner.
+    evidence: {absent: {scanner: {tool: gitleaks}}}
+
+  - id: security.sast-codeql
+    dim: security
+    desc: CodeQL static analysis
+    state: skipped
+    cadence: continuous
+    enforce: informational
+    tier: 3
+    reason: Geometry scripts with no network, auth, or application runtime.
+    evidence: {absent: {ci_job: ci.yml#codeql}}
+
+  - id: security.dependabot
+    dim: security
+    desc: Dependabot security updates on a lockfile
+    state: planned
+    cadence: periodic:30d
+    enforce: informational
+    tier: 3
+    reason: No pyproject/lockfile; dependabot_security_updates is disabled.
+    evidence:
+      {
+        absent: {
+          gh_setting: {
+            key: security_and_analysis.dependabot_security_updates.status,
+            equals: enabled,
+          }
+        }
+      }
+
+  # ============================== CODE QUALITY ============================
+  - id: quality.lint
+    dim: quality
+    desc: ruff (or equivalent) is clean and gated
+    state: planned
+    cadence: continuous
+    enforce: warning
+    tier: 2
+    reason: No ruff.toml, no pyproject.toml tool.ruff, no lint CI job.
+    evidence: {absent: {file: {path: ruff.toml}}}
+
+  - id: quality.format
+    dim: quality
+    desc: Sources are formatter-clean, enforced in CI
+    state: planned
+    cadence: continuous
+    enforce: warning
+    tier: 2
+    reason: No formatter config and no format job.
+    evidence: {absent: {ci_step: {workflow: ci.yml, name: Format}}}
+
+  # =========================== DEPENDENCY HEALTH ==========================
+  - id: deps.pyproject
+    dim: deps
+    desc: pyproject.toml declares and pins build123d / py_gearworks
+    state: planned
+    cadence: once-must-hold
+    enforce: blocking
+    tier: 2
+    reason: >-
+      No pyproject.toml, requirements.txt, or lockfile. Makefile invokes
+      unpinned `python`; CAD kernel is a git-describe build (ENT-005).
+    evidence: {absent: {file: {path: pyproject.toml}}}
+
+  # ========================== RELEASE & VERSIONING =======================
+  - id: release.changelog
+    dim: release
+    desc: A maintained CHANGELOG records user-visible changes per release
+    state: planned
+    cadence: per-release
+    enforce: informational
+    tier: 3
+    reason: History lives in git; no tags and no CHANGELOG.md.
+    evidence: {absent: {file: {path: CHANGELOG.md}}}
+
+  - id: release.workflow
+    dim: release
+    desc: Versioned release artifacts built by GitHub Actions
+    state: skipped
+    cadence: per-release
+    enforce: informational
+    tier: 3
+    reason: >-
+      Product is local 3D-print meshes (gitignored STL/STEP/3MF), not
+      tagged binaries or packages.
+    evidence: {absent: {file: {path: .github/workflows/release.yml}}}
+
+  # ============================ GOVERNANCE / META ========================
+  - id: governance.license
+    dim: governance
+    desc: LICENSE present
+    state: planned
+    cadence: once-must-hold
+    enforce: blocking
+    tier: 1
+    reason: >-
+      No LICENSE (gh licenseInfo=null). Python files carry SPDX
+      Apache-2.0 headers; gears.scad is CC-BY-NC-SA. Public repo defaults
+      to all-rights-reserved.
+    evidence: {absent: {file: {path: LICENSE}}}
+
+  - id: governance.readme
+    dim: governance
+    desc: README present
+    state: planned
+    cadence: once-must-hold
+    enforce: blocking
+    tier: 1
+    reason: No README.md; CLAUDE.md is agent-facing only.
+    evidence: {absent: {file: {path: README.md}}}
+
+  - id: governance.gitignore
+    dim: governance
+    desc: .gitignore covers export/, slicer meshes, and __pycache__
+    state: present
+    cadence: once-must-hold
+    enforce: warning
+    tier: 1
+    evidence: {file: {path: .gitignore, matches: 'export/'}}
+
+  - id: governance.squash-only
+    dim: governance
+    desc: Repo is squash-merge only (merge commits disabled)
+    state: enforced
+    cadence: once-must-hold
+    enforce: blocking
+    tier: 2
+    evidence: {gh_setting: {key: allow_merge_commit, equals: false}}
+
+  - id: governance.delete-branch
+    dim: governance
+    desc: Delete-branch-on-merge is enabled
+    state: enforced
+    cadence: once-must-hold
+    enforce: warning
+    tier: 2
+    evidence: {gh_setting: {key: delete_branch_on_merge, equals: true}}
+
+  - id: governance.security-md
+    dim: governance
+    desc: SECURITY.md documents the vulnerability-disclosure process
+    state: planned
+    cadence: once-must-hold
+    enforce: informational
+    tier: 3
+    reason: Public repo without a published disclosure policy.
+    evidence: {absent: {file: {path: SECURITY.md}}}
+
+  - id: governance.codeowners
+    dim: governance
+    desc: CODEOWNERS file for review routing
+    state: skipped
+    cadence: once-must-hold
+    enforce: informational
+    tier: 3
+    reason: Sole owner; no review-routing surface.
+    evidence: {absent: {file: {path: CODEOWNERS}}}
+
+  # ================================= BUILD ===============================
+  - id: build.make
+    dim: build
+    desc: Makefile all target builds projects/*.py into export/
+    state: present
+    cadence: continuous
+    enforce: warning
+    tier: 1
+    evidence: {make_target: all}
+
+  - id: build.clean
+    dim: build
+    desc: Makefile clean removes export/
+    state: present
+    cadence: once-must-hold
+    enforce: informational
+    tier: 1
+    evidence: {make_target: clean}
+
+  - id: build.ci
+    dim: build
+    desc: CI builds all parts on push/PR
+    state: planned
+    cadence: continuous
+    enforce: blocking
+    tier: 2
+    reason: No GitHub Actions workflows; make is local-only and unpinned.
+    evidence: {absent: {file: {path: .github/workflows}}}
+
+  # ============================ DOCUMENTATION ============================
+  - id: docs.readme
+    dim: docs
+    desc: README documents the Python/Makefile build and print path
+    state: planned
+    cadence: once-must-hold
+    enforce: warning
+    tier: 1
+    reason: No README.md. CLAUDE.md lists a missing docs/targets.md and omits the live OpenSCAD tree (ENT-001).
+    evidence: {absent: {file: {path: README.md}}}
+
+  - id: docs.claude-md
+    dim: docs
+    desc: CLAUDE.md records project structure and build commands
+    state: present
+    cadence: once-must-hold
+    enforce: informational
+    tier: 1
+    evidence: {file: {path: CLAUDE.md, matches: 'make'}}
+
+  - id: docs.bullseye
+    dim: docs
+    desc: bullseye.yaml is the intent ledger for followable work
+    state: present
+    cadence: once-must-hold
+    enforce: informational
+    tier: 1
+    evidence: {file: {path: bullseye.yaml}}
+
+  - id: docs.entropy-audit
+    dim: docs
+    desc: Snapshot entropy audit (2026-08-22) is in-tree
+    state: present
+    cadence: once-must-hold
+    enforce: informational
+    tier: 2
+    evidence: {file: {path: docs/audits/entropy-audit-2026-08-22.md}}
+
+  # ============================== PERFORMANCE ===========================
+  - id: perf.benchmarks
+    dim: perf
+    desc: Benchmark suite exists
+    state: skipped
+    cadence: per-release
+    enforce: informational
+    tier: 3
+    reason: Offline CAD generation; no runtime hot path to benchmark.
+    evidence: {absent: {file: {path: benches}}}
+
+  # ============================== VCS / HISTORY =========================
+  - id: vcs.default-branch
+    dim: vcs
+    desc: Default branch is master
+    state: enforced
+    cadence: once-must-hold
+    enforce: blocking
+    tier: 1
+    evidence: {gh_setting: {key: default_branch, equals: master}}
+
+  - id: vcs.branch-protection
+    dim: vcs
+    desc: master is protected
+    state: planned
+    cadence: once-must-hold
+    enforce: warning
+    tier: 2
+    reason: Branch protection 404; master is unprotected.
+    evidence:
+      absent:
+        command: gh api repos/marcelocantos/threedee/branches/master/protection --jq .url
+
+  - id: vcs.pre-commit-hook
+    dim: vcs
+    desc: Committed git hooks (scripts/hooks) gate locally before commit
+    state: planned
+    cadence: once-must-hold
+    enforce: informational
+    tier: 3
+    reason: No scripts/hooks; core.hooksPath is the default .git/hooks.
+    evidence: {absent: {file: {path: scripts/hooks/pre-commit}}}
+
+  # =================== AGENT-READINESS / ONBOARDING ====================
+  - id: agent.claude-md
+    dim: agent
+    desc: CLAUDE.md present (project conventions discoverable by agents)
+    state: present
+    cadence: once-must-hold
+    enforce: warning
+    tier: 1
+    evidence: {file: {path: CLAUDE.md}}
+
+  - id: agent.bullseye
+    dim: agent
+    desc: bullseye.yaml present (convergence targets discoverable)
+    state: present
+    cadence: once-must-hold
+    enforce: informational
+    tier: 1
+    evidence: {file: {path: bullseye.yaml}}
+
+  - id: agent.agents-md
+    dim: agent
+    desc: AGENTS.md present as the shared multi-tool instruction file
+    state: planned
+    cadence: once-must-hold
+    enforce: informational
+    tier: 2
+    reason: Only CLAUDE.md exists; no AGENTS.md.
+    evidence: {absent: {file: {path: AGENTS.md}}}
