@@ -5,6 +5,12 @@
 
 from build123d import *
 
+# OpenSCAD's cube() is min-aligned on every axis, while its cylinder()/cone()
+# are centred in x/y and sit on z=0. build123d centres everything by default,
+# and a bare Align.MIN aligns all three axes.
+CUBE = (Align.MIN, Align.MIN, Align.MIN)
+BASE_AT_Z0 = (Align.CENTER, Align.CENTER, Align.MIN)
+
 # RPi 4B dimensions
 rpi_l = 85.6
 rpi_w = 56.5
@@ -27,39 +33,34 @@ top = inset + 49
 drop_r = 0.4
 cam = 26
 
-# --- Main box (with rounded edges via fillet) ---
-with BuildPart() as box_part:
-    # Outer box (extended left for camera)
-    with BuildSketch():
-        RectangleRounded(box_l - 0.5 + cam, box_w, drop_r)
-    extrude(amount=box_h)
-    # Re-center: the original translates by [-cam, 0, 0]
-    # We'll offset to match
-
-with BuildPart() as box_outer:
-    with BuildSketch():
-        with Locations([(-cam / 2 + (box_l - 0.5) / 2 - (box_l - 0.5 + cam) / 2, 0)]):
-            RectangleRounded(box_l - 0.5 + cam, box_w, drop_r)
-    extrude(amount=box_h)
+# --- Main box ---
+# The original is minkowski(cube, sphere(r=drop_r)), i.e. the box grown by
+# drop_r in every direction with every edge and corner rounded to drop_r.
+# The cube is extended left by `cam` to carry the camera mount.
+outer = Pos(-cam - drop_r, -drop_r, -drop_r) * Box(
+    box_l - 0.5 + cam + 2 * drop_r,
+    box_w + 2 * drop_r,
+    box_h + 2 * drop_r,
+    align=CUBE,
+)
+outer = fillet(outer.edges(), radius=drop_r)
 
 # Hollow interior
-interior = Pos(wall - 8 + (box_l - 2 * wall + 8) / 2, wall + (box_w - 2 * wall) / 2, wall + box_h / 2) * Box(
-    box_l - 2 * wall + 8, box_w - 2 * wall, box_h,
+interior = Pos(wall - 8, wall, wall) * Box(
+    box_l - 2 * wall + 8, box_w - 2 * wall, box_h, align=CUBE,
 )
 
 # Side ports cutout
-side_cut = Pos(inset + 2.5 + (58 - 6) / 2, -1 + 13.5 / 2, wall + 2.5 + 8.5 / 2) * Box(58 - 6, 13.5, 8.5)
+side_cut = Pos(inset + 2.5, -1, wall + 2.5) * Box(58 - 6, 13.5, 8.5, align=CUBE)
 
-# Start with outer box aligned to origin-min
-outer = Pos(-cam, 0, 0) * box_outer.part
 shell = outer - interior - side_cut
 
 # --- Standoffs ---
 standoffs = []
 for x in [inset, right]:
     for y in [inset, top]:
-        post = Cylinder(radius=standoff_d / 2, height=standoff_h, align=Align.MIN)
-        bore = Cylinder(radius=hole_d / 2, height=standoff_h, align=Align.MIN)
+        post = Cylinder(radius=standoff_d / 2, height=standoff_h, align=BASE_AT_Z0)
+        bore = Cylinder(radius=hole_d / 2, height=standoff_h, align=BASE_AT_Z0)
         standoffs.append(Pos(x, y, wall) * (post - bore))
 
 for s in standoffs:
@@ -67,8 +68,8 @@ for s in standoffs:
 
 # --- Camera tube mounts (positive) ---
 tube_mount_1 = Pos(-1, box_w / 2, box_h / 2) * Rot(0, 90, 0) * (
-    Pos(10.3, 0.75, -9) * Cylinder(radius=2, height=6, align=Align.MIN)
-    + Pos(-10.3, 0.75, -9) * Cylinder(radius=2, height=6, align=Align.MIN)
+    Pos(10.3, 0.75, -9) * Cylinder(radius=2, height=6, align=BASE_AT_Z0)
+    + Pos(-10.3, 0.75, -9) * Cylinder(radius=2, height=6, align=BASE_AT_Z0)
 )
 shell = shell + tube_mount_1
 
@@ -78,7 +79,10 @@ cx, cy, cz = -3, box_w / 2, box_h / 2
 # Mirror mount slot (rotated 45-degree cube)
 mirror_slot = (
     Pos(cx - 23 - drop_r, cy, cz)
-    * Rot(90, 45, 0)
+    # OpenSCAD's rotate([90, 45, 0]) is Rz*Ry*Rx; build123d's Rot(90, 45, 0)
+    # composes the other way round, so spell the order out.
+    * Rot(0, 45, 0)
+    * Rot(90, 0, 0)
     * Box(18, 18, box_w + 2 * drop_r)
 )
 
@@ -92,8 +96,8 @@ camera_sq = Pos(cx, cy, cz) * Rot(0, 90, 0) * Pos(0, 0, -3.5) * Box(9, 9, 1)
 
 # Screw holes for camera
 camera_screws = Pos(cx, cy, cz) * Rot(0, 90, 0) * (
-    Pos(10.3, 0.75, -9) * Cylinder(radius=0.75, height=8, align=Align.MIN)
-    + Pos(-10.3, 0.75, -9) * Cylinder(radius=0.75, height=8, align=Align.MIN)
+    Pos(10.3, 0.75, -9) * Cylinder(radius=0.75, height=8, align=BASE_AT_Z0)
+    + Pos(-10.3, 0.75, -9) * Cylinder(radius=0.75, height=8, align=BASE_AT_Z0)
 )
 
 # Rectangular window
