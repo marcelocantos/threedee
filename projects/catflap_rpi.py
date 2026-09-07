@@ -28,19 +28,18 @@ drop_r = 0.4
 cam = 26
 
 # --- Main box (with rounded edges via fillet) ---
-with BuildPart() as box_part:
-    # Outer box (extended left for camera)
-    with BuildSketch():
-        RectangleRounded(box_l - 0.5 + cam, box_w, drop_r)
-    extrude(amount=box_h)
-    # Re-center: the original translates by [-cam, 0, 0]
-    # We'll offset to match
+# SCAD: translate([-cam, 0, 0]) cube([length - 0.5 + cam, width, height]),
+# i.e. the shell spans x from -cam to box_l - 0.5, y from 0 to box_w, z from
+# 0 to box_h. Every feature below is positioned in that frame, so the -cam
+# shift is applied exactly once, here.
+outer_l = box_l - 0.5 + cam
 
 with BuildPart() as box_outer:
     with BuildSketch():
-        with Locations([(-cam / 2 + (box_l - 0.5) / 2 - (box_l - 0.5 + cam) / 2, 0)]):
-            RectangleRounded(box_l - 0.5 + cam, box_w, drop_r)
+        RectangleRounded(outer_l, box_w, drop_r)
     extrude(amount=box_h)
+
+outer = Pos((box_l - 0.5 - cam) / 2, box_w / 2, 0) * box_outer.part
 
 # Hollow interior
 interior = Pos(wall - 8 + (box_l - 2 * wall + 8) / 2, wall + (box_w - 2 * wall) / 2, wall + box_h / 2) * Box(
@@ -50,8 +49,6 @@ interior = Pos(wall - 8 + (box_l - 2 * wall + 8) / 2, wall + (box_w - 2 * wall) 
 # Side ports cutout
 side_cut = Pos(inset + 2.5 + (58 - 6) / 2, -1 + 13.5 / 2, wall + 2.5 + 8.5 / 2) * Box(58 - 6, 13.5, 8.5)
 
-# Start with outer box aligned to origin-min
-outer = Pos(-cam, 0, 0) * box_outer.part
 shell = outer - interior - side_cut
 
 # --- Standoffs ---
