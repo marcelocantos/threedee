@@ -12,9 +12,15 @@ Parametric 3D parts for 3D printing, built with
 ## Build
 
 ```bash
-make        # Build all parts to export/
+make        # Build all parts to export/, then check their geometry
 make clean  # Remove export/
 ```
+
+`make` ends with `tools/check_geometry.py`, which measures every exported
+STL against `expectations.yaml` and fails the build on empty, degenerate or
+misplaced output. The expected volumes and bounding boxes come from
+rendering the OpenSCAD originals (`openscad -o ref.stl <part>.scad`), not
+from the build123d output they gate.
 
 ## Conventions
 
