@@ -10,6 +10,10 @@ from build123d import *
 from math import radians, sqrt
 from py_gearworks import BevelGear
 
+# OpenSCAD's cylinder() sits on the z=0 plane but is centred in x and y;
+# build123d centres all three axes by default and a bare Align.MIN shifts all three.
+BASE_AT_Z0 = (Align.CENTER, Align.CENTER, Align.MIN)
+
 # Parameters from original gears.scad invocation
 m = 3 / 2       # module
 w = 20 / 2      # tooth width (face width)
@@ -25,29 +29,24 @@ gear_def = BevelGear(
 
 gear_solid = gear_def.build_part()
 
+# Mounting cylinder, shared by both gears.
+boss = Pos(0, 0, -2.7) * Cylinder(radius=14.95 / 2, height=3, align=BASE_AT_Z0)
+
 # --- Gear 1: hex socket ---
-with BuildPart() as gear1:
-    add(gear_solid)
-    # Mounting cylinder
-    Pos(0, 0, -2.7) * Cylinder(radius=14.95 / 2, height=3, align=Align.MIN)
-    # Hex socket cutout (10mm across flats, hexagonal)
-    hex_r = (10 * (2 / sqrt(3)) - 0.2) / 2
-    with BuildSketch(Plane.XY.offset(-3)):
-        RegularPolygon(radius=hex_r, side_count=6)
-    extrude(amount=24, mode=Mode.SUBTRACT)
+hex_r = (10 * (2 / sqrt(3)) - 0.2) / 2
+hex_socket = Pos(0, 0, -3) * extrude(
+    Plane.XY * RegularPolygon(radius=hex_r, side_count=6), amount=24
+)
+gear1 = (Part() + gear_solid + boss) - hex_socket
 
 # --- Gear 2: round bore ---
-with BuildPart() as gear2:
-    add(gear_solid)
-    # Mounting cylinder
-    Pos(0, 0, -2.7) * Cylinder(radius=14.95 / 2, height=3, align=Align.MIN)
-    # Round bore
-    Pos(0, 0, -3) * Cylinder(radius=(10 + 0.4) / 2, height=24, align=Align.MIN, mode=Mode.SUBTRACT)
+round_bore = Pos(0, 0, -3) * Cylinder(radius=(10 + 0.4) / 2, height=24, align=BASE_AT_Z0)
+gear2 = (Part() + gear_solid + boss) - round_bore
 
 # Position gear 2 offset from gear 1
 result = Compound(children=[
-    gear1.part,
-    Pos(3.5 * w, 0, 0) * gear2.part,
+    gear1,
+    Pos(3.5 * w, 0, 0) * gear2,
 ])
 
 export_stl(result, "triton-lifter.stl")

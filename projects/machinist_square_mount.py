@@ -17,6 +17,10 @@ t1 = 9.44
 t2 = 9.57
 t3 = 11.54
 
+# OpenSCAD's cylinder()/cone() sit on the z=0 plane but are centred in x and y;
+# build123d defaults to centring all three axes and a bare Align.MIN shifts all three.
+BASE_AT_Z0 = (Align.CENTER, Align.CENTER, Align.MIN)
+
 
 def square_slot(lh, wh, th, lb, wb, tb, xb, zb, g):
     """A machinist square slot — L-shaped cavity."""
@@ -63,8 +67,8 @@ hole_spacing = 35
 
 for i in range(2):
     x = hole_offset_x + i * hole_spacing
-    body = body - Pos(x, 25 + 15, 0) * Cylinder(radius=hole_d / 2, height=h, align=Align.MIN)
-    body = body - Pos(x, 25 + 15, 5) * Cylinder(radius=6, height=h, align=Align.MIN)
+    body = body - Pos(x, 25 + 15, 0) * Cylinder(radius=hole_d / 2, height=h, align=BASE_AT_Z0)
+    body = body - Pos(x, 25 + 15, 5) * Cylinder(radius=6, height=h, align=BASE_AT_Z0)
 
 result = body
 

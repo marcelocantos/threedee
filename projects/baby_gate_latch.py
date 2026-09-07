@@ -15,14 +15,18 @@ width = 10
 base_thickness = 10
 base_length = 40
 
+# OpenSCAD's cylinder()/cone() sit on the z=0 plane but are centred in x and y;
+# build123d defaults to centring all three axes and a bare Align.MIN shifts all three.
+BASE_AT_Z0 = (Align.CENTER, Align.CENTER, Align.MIN)
+
 
 def countersink_hole(shaft_r, sink_r, depth):
     """Countersunk screw hole from cylinder + cone."""
     bevel_h = sink_r - shaft_r
-    shaft = Cylinder(radius=shaft_r, height=depth, align=Align.MIN)
+    shaft = Cylinder(radius=shaft_r, height=depth, align=BASE_AT_Z0)
     bevel = Pos(0, 0, depth - bevel_h) * Cone(
         bottom_radius=shaft_r, top_radius=sink_r, height=bevel_h,
-        align=Align.MIN,
+        align=BASE_AT_Z0,
     )
     return shaft + bevel
 
@@ -72,7 +76,7 @@ def baby_gate_latch(span):
         align=(Align.MIN, Align.MIN, Align.MIN),
     )
     clip_cyl = Pos(outer - width / 2, 0, width / 2) * Rot(-90, 0, 0) * Cylinder(
-        radius=width / 2, height=arrowhead_width,
+        radius=width / 2, height=arrowhead_width, align=BASE_AT_Z0,
     )
     clip = clip_box + clip_cyl
 

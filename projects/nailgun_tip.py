@@ -41,7 +41,8 @@ inner = Pos(0, Txy / 2, Tz1) * trapezium(W1 - 2 * Txy, W2 - 2 * Txy, D, H - Tz1 
 
 # Upper cutout (cavity clipped to upper region only)
 upper_cavity = Pos(0, Txy / 2, 2 + Tz1) * trapezium(W1 - 2 * Txy, W2 - 2 * Txy, D, H - Tz1 - Tz2)
-clip_box = Pos(-5, -10, -5 + 2 + Tz1) * Box(10, 10, 10)
+# OpenSCAD's cube() is min-aligned on every axis; build123d's Box centres by default.
+clip_box = Pos(-5, -10, -5 + 2 + Tz1) * Box(10, 10, 10, align=(Align.MIN,) * 3)
 upper_cut = upper_cavity - clip_box
 
 # Side slot
