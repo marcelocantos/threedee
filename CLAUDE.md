@@ -14,7 +14,11 @@ Parametric 3D parts for 3D printing, built with
 ```bash
 make        # Build all parts to export/
 make clean  # Remove export/
+pytest      # Geometry oracles (bbox/solid-count checks on the built parts)
 ```
+
+`make` only checks that each script exited 0, which is not enough to catch a
+part that builds cleanly but is the wrong shape. `tests/` asserts on the solids.
 
 ## Conventions
 
