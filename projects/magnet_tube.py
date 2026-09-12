@@ -11,8 +11,9 @@ wall = 1          # Wall thickness
 inner_d = 18      # Inner diameter
 outer_d = inner_d + wall
 
-# Main cylinder
-tube = Cylinder(radius=outer_d / 2, height=length)
+# Main cylinder. OpenSCAD cylinder() is min-aligned (z in 0..length);
+# build123d defaults to centered, which floats the barrier off the tube.
+tube = Cylinder(radius=outer_d / 2, height=length, align=Align.MIN)
 
 # Chamfered barrier — sits at z=50, flares out then tapers back
 barrier_r = outer_d / 2
@@ -20,13 +21,13 @@ flare = 5
 z = 50
 flare_r = barrier_r + flare / 2
 barrier = (
-    Pos(0, 0, z) * Cone(bottom_radius=barrier_r, top_radius=flare_r, height=5)
-    + Pos(0, 0, z + 5) * Cylinder(radius=flare_r, height=5)
-    + Pos(0, 0, z + 10) * Cone(bottom_radius=flare_r, top_radius=barrier_r, height=1)
+    Pos(0, 0, z) * Cone(bottom_radius=barrier_r, top_radius=flare_r, height=5, align=Align.MIN)
+    + Pos(0, 0, z + 5) * Cylinder(radius=flare_r, height=5, align=Align.MIN)
+    + Pos(0, 0, z + 10) * Cone(bottom_radius=flare_r, top_radius=barrier_r, height=1, align=Align.MIN)
 )
 
 # Hollow out
-cavity = Pos(0, 0, wall) * Cylinder(radius=inner_d / 2, height=length)
+cavity = Pos(0, 0, wall) * Cylinder(radius=inner_d / 2, height=length, align=Align.MIN)
 
 result = tube + barrier - cavity
 
