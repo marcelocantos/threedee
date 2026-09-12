@@ -21,30 +21,30 @@ rounding = 0.8
 
 
 def holder(rail_length, stem_range, holes):
-    """Build a single holder rail with stems."""
-    with BuildPart() as h:
-        # Rail
-        Box(rail_length, rail_w, rail_h)
+    """Build a single holder rail with stems.
 
-        # Screw holes
-        for x in holes:
-            cone_h = rail_h
-            Pos(x, 0, -rail_h / 2) * Cone(
-                bottom_radius=1.5, top_radius=1.5 + cone_h,
-                height=cone_h, align=Align.MIN,
-                mode=Mode.SUBTRACT,
-            )
+    Algebra, not BuildPart side-effects: `Pos * Shape` is a value and must be
+    combined with `+`/`-` or it is silently dropped at the origin.
+    """
+    part = Box(rail_length, rail_w, rail_h)
 
-        # Stems and tabs
-        for i in stem_range:
-            x = i * stem_spacing
-            # Rounded stem (cylinder + sphere cap approximation via fillet)
-            with BuildPart(Plane.XY.offset(0), mode=Mode.ADD) as stem:
-                Pos(x, 0, 0) * Cylinder(radius=(stem_d - 2 * rounding) / 2, height=stem_h - rounding, align=Align.MIN)
-            # Tab
-            Pos(x, 0, tab_h / 2) * Box(tab_w, tab_t, tab_h)
+    for x in holes:
+        cone_h = rail_h
+        part = part - Pos(x, 0, -rail_h / 2) * Cone(
+            bottom_radius=1.5, top_radius=1.5 + cone_h,
+            height=cone_h, align=Align.MIN,
+        )
 
-    return h.part
+    for i in stem_range:
+        x = i * stem_spacing
+        part = part + Pos(x, 0, 0) * Cylinder(
+            radius=(stem_d - 2 * rounding) / 2,
+            height=stem_h - rounding,
+            align=Align.MIN,
+        )
+        part = part + Pos(x, 0, tab_h / 2) * Box(tab_w, tab_t, tab_h)
+
+    return part
 
 
 parts = []
