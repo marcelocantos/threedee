@@ -4,7 +4,7 @@ STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 all: $(STAMPS)
 
 export/.%.stamp: projects/%.py | export
-	cd export && python ../$<
+	cd export && uv run --project .. python ../$<
 	@touch $@
 
 export:

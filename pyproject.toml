@@ -1,0 +1,17 @@
+[project]
+name = "threedee"
+version = "0.0.0"
+description = "Parametric 3D parts for 3D printing, built with build123d"
+requires-python = ">=3.10"
+dependencies = [
+    "build123d==0.10.0",
+    "py_gearworks==0.0.18",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.uv]
+package = false
