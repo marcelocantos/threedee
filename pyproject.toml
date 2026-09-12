@@ -4,8 +4,8 @@ version = "0.0.0"
 description = "Parametric 3D parts for 3D printing, built with build123d"
 requires-python = ">=3.10"
 dependencies = [
-    "build123d==0.10.0",
-    "py_gearworks==0.0.18",
+    "build123d==0.11.1",
+    "py_gearworks @ git+https://github.com/GarryBGoode/py_gearworks@2fc2a13d82a9997a65f30c870498f0bb3be62318",
 ]
 
 [dependency-groups]

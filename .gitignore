@@ -3,3 +3,5 @@ export/
 __pycache__/
 *.stl
 *.step
+.venv/
+.pytest_cache/
