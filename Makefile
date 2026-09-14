@@ -22,7 +22,7 @@ oracle: all
 
 # Standing invariants for bullseye_convergence.
 .PHONY: bullseye
-bullseye: all
+bullseye: all oracle
 	@dirty=$$(git status --porcelain | grep -vE 'bullseye\.yaml$$' || true); \
 	if [ -z "$$dirty" ]; then echo "✓ working tree clean"; \
 	else \
