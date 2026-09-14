@@ -11,7 +11,7 @@ import json
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
-from math import sqrt
+from math import atan2, sqrt
 from pathlib import Path
 
 import cv2
@@ -52,6 +52,33 @@ def contour_edges(mask: np.ndarray) -> list[np.ndarray]:
         holes.sort(key=lambda item: item[1], reverse=True)
         loops.extend(contours[i] for i, _ in holes)
     return loops
+
+
+def fit_line(pts: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Unit direction and a point on the line."""
+    c = pts.mean(axis=0)
+    _, _, vt = np.linalg.svd(pts - c, full_matrices=False)
+    d = vt[0]
+    d = d / np.linalg.norm(d)
+    if d[1] < 0:
+        d = -d
+    return c, d
+
+
+def line_intersection(c1: np.ndarray, d1: np.ndarray, c2: np.ndarray, d2: np.ndarray) -> tuple[float, float]:
+    t, _ = np.linalg.solve(np.column_stack([d1, -d2]), c2 - c1)
+    p = c1 + t * d1
+    return float(p[0]), float(p[1])
+
+
+def project_to_segment(c: np.ndarray, d: np.ndarray, p: np.ndarray, q: np.ndarray) -> tuple[float, float]:
+    """Clip infinite line (c,d) to the segment between projections of p and q."""
+    tp = float(np.dot(p - c, d))
+    tq = float(np.dot(q - c, d))
+    t0, t1 = (tp, tq) if tp < tq else (tq, tp)
+    a = c + t0 * d
+    b = c + t1 * d
+    return (float(a[0]), float(a[1])), (float(b[0]), float(b[1]))
 
 
 def fit_circle(pts: np.ndarray) -> tuple[float, float, float]:
@@ -96,7 +123,131 @@ class RingDonut:
         return {"kind": "ring_donut", **asdict(self)}
 
 
-def render_overlay(rgb: np.ndarray, loops: list[np.ndarray], ring: RingDonut | None = None) -> np.ndarray:
+def triangle_hole(inners: list[np.ndarray]) -> np.ndarray:
+    """Inner loop between ring hole and base slot."""
+    return sorted(inners, key=lambda c: cv2.moments(c)["m01"] / cv2.moments(c)["m00"])[1]
+
+
+def _edge_x_at_y(contour: np.ndarray, y: float, cx: float, *, side: str, margin: float = 3.0) -> float | None:
+    pts = contour.reshape(-1, 2).astype(float)
+    band = pts[np.abs(pts[:, 1] - y) < margin]
+    if side == "left":
+        half = band[band[:, 0] < cx - 2]
+        return float(half[:, 0].min()) if len(half) else None
+    if side == "right":
+        half = band[band[:, 0] > cx + 2]
+        return float(half[:, 0].max()) if len(half) else None
+    raise ValueError(side)
+
+
+def _inner_x_at_y(tri: np.ndarray, y: float, cx: float, *, side: str, margin: float = 3.0) -> float | None:
+    pts = tri.reshape(-1, 2).astype(float)
+    band = pts[np.abs(pts[:, 1] - y) < margin]
+    if side == "left":
+        half = band[(band[:, 0] < cx - 2) & (band[:, 0] > cx - 200)]
+        return float(half[:, 0].max()) if len(half) else None
+    half = band[(band[:, 0] > cx + 2) & (band[:, 0] < cx + 200)]
+    return float(half[:, 0].min()) if len(half) else None
+
+
+@dataclass
+class AngledRect:
+    """Rectangle on a slight angle (4 corners, clockwise)."""
+
+    corners: list[tuple[float, float]]
+    width: float
+    length: float
+    angle_deg: float
+
+    def to_json(self) -> dict:
+        return {
+            "kind": "angled_rect",
+            "corners": self.corners,
+            "width": self.width,
+            "length": self.length,
+            "angle_deg": self.angle_deg,
+        }
+
+
+@dataclass
+class StemPair:
+    left: AngledRect
+    right: AngledRect
+
+    @classmethod
+    def from_contours(
+        cls, outer: np.ndarray, tri: np.ndarray, ring: RingDonut
+    ) -> StemPair:
+        cx = ring.cx
+        tri_pts = tri.reshape(-1, 2).astype(float)
+        y_top = float(tri_pts[:, 1].min())
+        y_bot = float(tri_pts[:, 1].max())
+        y_top = max(y_top, ring.cy + ring.r_inner * 0.85)
+
+        return cls(
+            left=cls._one_rect(outer, tri, cx, side="left", y_top=y_top, y_bot=y_bot),
+            right=cls._one_rect(outer, tri, cx, side="right", y_top=y_top, y_bot=y_bot),
+        )
+
+    @staticmethod
+    def _one_rect(
+        outer: np.ndarray,
+        tri: np.ndarray,
+        cx: float,
+        *,
+        side: str,
+        y_top: float,
+        y_bot: float,
+    ) -> AngledRect:
+        mids: list[tuple[float, float]] = []
+        widths: list[float] = []
+        for y in np.linspace(y_top, y_bot, 40):
+            xo = _edge_x_at_y(outer, y, cx, side=side)
+            xi = _inner_x_at_y(tri, y, cx, side=side)
+            if xo is None or xi is None:
+                continue
+            w = abs(xi - xo)
+            if w < 8:
+                continue
+            xm = (xo + xi) / 2
+            mids.append((xm, float(y)))
+            widths.append(w)
+
+        if len(mids) < 4:
+            raise RuntimeError(f"could not sample {side} stem")
+        mids_arr = np.array(mids)
+        c, d = fit_line(mids_arr)
+        d = d / np.linalg.norm(d)
+        if d[1] < 0:
+            d = -d
+        perp = np.array([-d[1], d[0]])
+
+        t_vals = (mids_arr - c) @ d
+        t0, t1 = float(t_vals.min()), float(t_vals.max())
+        p0 = c + t0 * d
+        p1 = c + t1 * d
+        half_w = float(np.median(widths)) / 2
+
+        corners = [
+            tuple(p0 + half_w * perp),
+            tuple(p0 - half_w * perp),
+            tuple(p1 - half_w * perp),
+            tuple(p1 + half_w * perp),
+        ]
+        angle = float(np.degrees(atan2(d[1], d[0])))
+        length = float(np.hypot(*(p1 - p0)))
+        return AngledRect(corners=corners, width=half_w * 2, length=length, angle_deg=angle)
+
+    def to_json(self) -> dict:
+        return {"kind": "stem_pair", "left": self.left.to_json(), "right": self.right.to_json()}
+
+
+def render_overlay(
+    rgb: np.ndarray,
+    loops: list[np.ndarray],
+    ring: RingDonut | None = None,
+    stems: StemPair | None = None,
+) -> np.ndarray:
     vis = rgb.copy()
     for i, cnt in enumerate(loops):
         col = (0, 220, 255) if i == 0 else (255, 180, 80)
@@ -106,6 +257,10 @@ def render_overlay(rgb: np.ndarray, loops: list[np.ndarray], ring: RingDonut | N
         cv2.circle(vis, c, int(round(ring.r_outer)), (60, 255, 120), 3, cv2.LINE_AA)
         cv2.circle(vis, c, int(round(ring.r_inner)), (60, 255, 120), 3, cv2.LINE_AA)
         cv2.circle(vis, c, 4, (40, 200, 80), -1, cv2.LINE_AA)
+    if stems is not None:
+        for rect in (stems.left, stems.right):
+            pts = np.array(rect.corners, dtype=np.int32).reshape(-1, 1, 2)
+            cv2.polylines(vis, [pts], True, (255, 80, 255), 3, cv2.LINE_AA)
     return vis
 
 
@@ -119,8 +274,10 @@ def main() -> None:
     rgb = np.array(Image.open(args.photo).convert("RGB"))
     mask = mask_from_photo(rgb)
     loops = contour_edges(mask)
-    ring = RingDonut.from_loops(loops[0], loops[1:])
-    overlay = render_overlay(rgb, loops, ring)
+    inners = loops[1:]
+    ring = RingDonut.from_loops(loops[0], inners)
+    stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring)
+    overlay = render_overlay(rgb, loops, ring, stems)
 
     h, w = rgb.shape[:2]
     gap = 16
@@ -134,13 +291,15 @@ def main() -> None:
     Image.fromarray(panel).save(out)
 
     json_path = out.with_name("ring-hook-objects.json")
-    json_path.write_text(json.dumps({"ring": ring.to_json()}, indent=2) + "\n")
+    json_path.write_text(json.dumps({"ring": ring.to_json(), "stems": stems.to_json()}, indent=2) + "\n")
 
     print(f"wrote {out}  ({len(loops)} contour loops)")
     for i, cnt in enumerate(loops):
         kind = "outer" if i == 0 else f"inner{i}"
         print(f"  {kind}: {len(cnt)} pts, area={cv2.contourArea(cnt):.0f} px²")
     print(f"  ring_donut: centre=({ring.cx:.0f},{ring.cy:.0f}) r_outer={ring.r_outer:.0f} r_inner={ring.r_inner:.0f}")
+    for side, r in ("left", stems.left), ("right", stems.right):
+        print(f"  stem_{side}: {r.length:.0f}x{r.width:.0f}px  angle={r.angle_deg:.1f}°")
     print(f"  wrote {json_path}")
 
     if args.open:
