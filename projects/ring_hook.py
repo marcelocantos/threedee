@@ -19,7 +19,8 @@ foot_r = 10         # Foot semicircle radius (centred on the flat)
 d_r = 7.5           # D cutout radius, concentric with the foot
 d_flat = 2.2        # D cutout flat, below the foot flat
 stem_hw = 3.4       # Stem half-width where it meets the foot flat
-shoulder_r = 5      # Concave fillet between stem and foot flat
+shoulder_r = 4.5    # Concave fillet between stem and foot flat (5 leaves no room for foot_corner_r)
+foot_corner_r = 1   # Rounding where the foot arc meets the flat
 tri_top = 21        # Triangular cutout: top edge height
 tri_hw = 3.0        # Triangular cutout: half-width at the top
 tri_apex = 0.5      # Triangular cutout: apex height
@@ -45,6 +46,8 @@ shoulders = (
     .filter_by_position(Axis.X, -stem_hw, stem_hw)
 )
 outline = fillet(shoulders, shoulder_r)
+foot_corners = [v for v in outline.vertices() if abs(v.Y) < 1e-6 and abs(abs(v.X) - foot_r) < 1e-6]
+outline = fillet(foot_corners, foot_corner_r)
 
 hole = Pos(0, ring_y) * Circle(hole_r)
 tri = Polygon((0, tri_apex), (tri_hw, tri_top), (-tri_hw, tri_top), align=None)  # CCW
