@@ -19,10 +19,13 @@ base_length = 40
 def countersink_hole(shaft_r, sink_r, depth):
     """Countersunk screw hole from cylinder + cone."""
     bevel_h = sink_r - shaft_r
-    shaft = Cylinder(radius=shaft_r, height=depth, align=Align.MIN)
+    shaft = Cylinder(
+        radius=shaft_r, height=depth,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    )
     bevel = Pos(0, 0, depth - bevel_h) * Cone(
         bottom_radius=shaft_r, top_radius=sink_r, height=bevel_h,
-        align=Align.MIN,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
     )
     return shaft + bevel
 
@@ -73,6 +76,7 @@ def baby_gate_latch(span):
     )
     clip_cyl = Pos(outer - width / 2, 0, width / 2) * Rot(-90, 0, 0) * Cylinder(
         radius=width / 2, height=arrowhead_width,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
     )
     clip = clip_box + clip_cyl
 
