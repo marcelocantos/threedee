@@ -194,7 +194,72 @@ def filter_lines(lines: list[Segment], base: Circle, h: int) -> list[Segment]:
     kept = drop_short_subsegments(kept)
     # Hough splits the inner triangle edges into many colinear fragments.
     kept = collapse_edge_stack(kept, angle_lo=93, angle_hi=100, mx_lo=350, mx_hi=450)
+    kept = collapse_edge_stack(kept, angle_lo=78, angle_hi=84, mx_lo=240, mx_hi=330)
     return kept
+
+
+def _unit_dir(seg: Segment) -> tuple[np.ndarray, np.ndarray]:
+    p = np.array([seg.x1, seg.y1], dtype=float)
+    d = np.array([seg.x2 - seg.x1, seg.y2 - seg.y1], dtype=float)
+    d /= np.linalg.norm(d)
+    return p, d
+
+
+def _line_intersection(p1: np.ndarray, d1: np.ndarray, p2: np.ndarray, d2: np.ndarray) -> np.ndarray:
+    t, _s = np.linalg.solve(np.column_stack([d1, -d2]), p2 - p1)
+    return p1 + t * d1
+
+
+def _line_circle_hits(p: np.ndarray, d: np.ndarray, circle: Circle) -> list[np.ndarray]:
+    c = np.array([circle.cx, circle.cy], dtype=float)
+    f = p - c
+    a = float(np.dot(d, d))
+    b = 2.0 * float(np.dot(f, d))
+    cc = float(np.dot(f, f)) - circle.r**2
+    disc = b * b - 4 * a * cc
+    if disc < 0:
+        return []
+    sd = np.sqrt(disc)
+    return [p + t * d for t in ((-b - sd) / (2 * a), (-b + sd) / (2 * a))]
+
+
+def _is_inner_left(seg: Segment) -> bool:
+    return 78 <= seg.angle_deg <= 84 and 240 <= seg.mx <= 330
+
+
+def _is_inner_right(seg: Segment) -> bool:
+    return 93 <= seg.angle_deg <= 100 and 350 <= seg.mx <= 450
+
+
+def extend_inner_triangle(lines: list[Segment], ring: Circle) -> list[Segment]:
+    """Extend inner void edges to meet the ring circle at the top and each other at the apex."""
+    left_candidates = [ln for ln in lines if _is_inner_left(ln)]
+    right_candidates = [ln for ln in lines if _is_inner_right(ln)]
+    if not left_candidates or not right_candidates:
+        return lines
+
+    left = max(left_candidates, key=lambda ln: ln.length)
+    right = max(right_candidates, key=lambda ln: ln.length)
+    p_l, d_l = _unit_dir(left)
+    p_r, d_r = _unit_dir(right)
+    apex = _line_intersection(p_l, d_l, p_r, d_r)
+
+    def ring_touch(seg: Segment, p: np.ndarray, d: np.ndarray) -> np.ndarray:
+        hits = _line_circle_hits(p, d, ring)
+        below_ring = [h for h in hits if h[1] > ring.cy]
+        if not below_ring:
+            below_ring = hits
+        return min(below_ring, key=lambda h: h[1])
+
+    top_l = ring_touch(left, p_l, d_l)
+    top_r = ring_touch(right, p_r, d_r)
+
+    extended = [
+        Segment(float(top_l[0]), float(top_l[1]), float(apex[0]), float(apex[1])),
+        Segment(float(top_r[0]), float(top_r[1]), float(apex[0]), float(apex[1])),
+    ]
+    rest = [ln for ln in lines if not _is_inner_left(ln) and not _is_inner_right(ln)]
+    return rest + extended
 
 
 def pick_circles(circles: list[Circle], crop_blue: np.ndarray, h: int) -> list[Circle]:
@@ -241,6 +306,7 @@ def detect(crop: np.ndarray, crop_blue: np.ndarray) -> tuple[list[Segment], list
     base = refine_base_circle(crop_blue, base_hough)
     kept_lines = filter_lines(lines, base, h)
     kept_circles = pick_circles(circles, crop_blue, h)
+    kept_lines = extend_inner_triangle(kept_lines, kept_circles[3])
     return kept_lines, kept_circles
 
 
