@@ -81,19 +81,15 @@ class RingDonut:
         cx, cy, r_inner = fit_circle(hole_pts)
 
         outer_pts = outer.reshape(-1, 2).astype(float)
-        dist = np.hypot(outer_pts[:, 0] - cx, outer_pts[:, 1] - cy)
-        # Outer ring band: above the neck, just outside the hole radius.
+        dist_all = np.hypot(outer_pts[:, 0] - cx, outer_pts[:, 1] - cy)
+        # Top cap of the ring only — avoid neck points that inflate the radius.
         band = outer_pts[
-            (outer_pts[:, 1] < cy + r_inner * 1.35)
-            & (dist > r_inner * 0.92)
-            & (dist < r_inner * 2.2)
+            (outer_pts[:, 1] < cy + r_inner * 0.35) & (dist_all > r_inner * 0.98) & (dist_all < r_inner * 1.8)
         ]
-        if len(band) < 20:
-            band = outer_pts[outer_pts[:, 1] < cy + r_inner * 1.5]
-        _, _, r_outer_fit = fit_circle(band)
-        r_outer = float(np.percentile(np.hypot(band[:, 0] - cx, band[:, 1] - cy), 88))
-        if r_outer < r_inner * 1.05:
-            r_outer = r_outer_fit
+        if len(band) < 30:
+            band = outer_pts[(outer_pts[:, 1] < cy + r_inner * 0.55) & (dist_all > r_inner * 0.95)]
+        radii = np.hypot(band[:, 0] - cx, band[:, 1] - cy)
+        r_outer = float(np.median(radii))
         return cls(cx=cx, cy=cy, r_outer=r_outer, r_inner=r_inner)
 
     def to_json(self) -> dict:
