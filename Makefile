@@ -13,6 +13,11 @@ export:
 clean:
 	rm -rf export
 
+# Port fidelity oracle: OpenSCAD reference vs build123d export (tools/port_oracle.py).
+.PHONY: oracle
+oracle: all
+	python tools/port_oracle.py --threshold 0.01
+
 .PHONY: all clean
 
 # Standing invariants for bullseye_convergence.
