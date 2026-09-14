@@ -25,6 +25,7 @@ tri_hw = 3.0        # Triangular cutout: half-width at the top
 tri_apex = 0.5      # Triangular cutout: apex height
 thickness = 3       # Plate thickness for export
 hole_round = 1      # Rounding on the ring hole's top and bottom edges
+corner_round = 1    # Rounding on the triangle and crescent cutout corners
 
 # Stem: lines from the foot corners (±stem_hw, 0) tangent to the ring.
 d = hypot(stem_hw, ring_y)
@@ -46,6 +47,8 @@ outline = fillet(shoulders, shoulder_r)
 hole = Pos(0, ring_y) * Circle(hole_r)
 tri = Polygon((0, tri_apex), (tri_hw, tri_top), (-tri_hw, tri_top), align=None)  # CCW
 dcut = Circle(d_r) & Pos(0, -d_flat) * Rectangle(2 * d_r, d_r, align=(Align.CENTER, Align.MAX))
+tri = fillet(tri.vertices(), corner_round)
+dcut = fillet(dcut.vertices(), corner_round)
 
 profile = outline - hole - tri - dcut
 result = extrude(profile, thickness)
