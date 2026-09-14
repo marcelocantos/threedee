@@ -25,7 +25,13 @@ make clean  # Remove export/
 
 ## Delivery
 
-Merged to master.
+Pushed to master.
+
+## Gates
+
+profile: base
+override:
+  - pr-workflow: skip
 
 ## TODO
 
