@@ -41,7 +41,9 @@ inner = Pos(0, Txy / 2, Tz1) * trapezium(W1 - 2 * Txy, W2 - 2 * Txy, D, H - Tz1 
 
 # Upper cutout (cavity clipped to upper region only)
 upper_cavity = Pos(0, Txy / 2, 2 + Tz1) * trapezium(W1 - 2 * Txy, W2 - 2 * Txy, D, H - Tz1 - Tz2)
-clip_box = Pos(-5, -10, -5 + 2 + Tz1) * Box(10, 10, 10)
+clip_box = Pos(-5, -10, -5 + 2 + Tz1) * Box(
+    10, 10, 10, align=(Align.MIN, Align.MIN, Align.MIN)
+)
 upper_cut = upper_cavity - clip_box
 
 # Side slot
