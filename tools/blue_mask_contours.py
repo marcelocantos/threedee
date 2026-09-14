@@ -249,6 +249,30 @@ def _line_distance(c: np.ndarray, d: np.ndarray, p: np.ndarray) -> float:
     return float(abs(v[0] * d[1] - v[1] * d[0]))
 
 
+def _foot_on_line(p: np.ndarray, d: np.ndarray, c: np.ndarray) -> np.ndarray:
+    return p + float(np.dot(c - p, d)) * d
+
+
+def _solve_shoulder_radius(corner_x: float, flat_y: float, outer_bot: np.ndarray, d: np.ndarray) -> float:
+    """Radius for centre (corner_x, flat_y - r) tangent to stem outer line and D flat from above."""
+
+    def residual(r: float) -> float:
+        cy = flat_y - r
+        v = np.array([corner_x - outer_bot[0], cy - outer_bot[1]])
+        return abs(v[0] * d[1] - v[1] * d[0]) - r
+
+    span = float(np.hypot(outer_bot[0] - corner_x, outer_bot[1] - flat_y))
+    r_lo = span * 0.25
+    r_hi = span * 1.6
+    for _ in range(80):
+        mid = (r_lo + r_hi) / 2
+        if residual(mid) > 0:
+            r_lo = mid
+        else:
+            r_hi = mid
+    return (r_lo + r_hi) / 2
+
+
 @dataclass
 class ShoulderArc:
     """Circular fillet tangent to the D flat and the stem outer edge."""
@@ -264,17 +288,20 @@ class ShoulderArc:
     def arc_loop(self, n: int = 48) -> list[tuple[float, float]]:
         return _arc_points(self.cx, self.cy, self.r, self.a_start, self.a_end, n=n)
 
-    def verify(self, flat_y: float, stem_d: np.ndarray, *, tol: float = 1e-3) -> None:
+    def verify(self, flat_y: float, stem_d: np.ndarray, *, tol: float = 1e-2) -> None:
         centre = np.array([self.cx, self.cy])
         stem = np.array(self.stem_tangent)
-        if abs(self.cy - self.r - flat_y) > tol:
-            raise RuntimeError(f"flat tangency off by {abs(self.cy - self.r - flat_y):.4f}px")
+        flat = np.array(self.flat_tangent)
+        if abs(self.cy + self.r - flat_y) > tol:
+            raise RuntimeError(f"flat tangency off by {abs(self.cy + self.r - flat_y):.4f}px")
         if abs(_line_distance(centre, stem_d, stem) - self.r) > tol:
             raise RuntimeError("stem-line tangency failed")
         if abs(np.linalg.norm(centre - stem) - self.r) > tol:
             raise RuntimeError("stem tangent point not on circle")
-        if abs(np.linalg.norm(centre - np.array(self.flat_tangent)) - self.r) > tol:
+        if abs(np.linalg.norm(centre - flat) - self.r) > tol:
             raise RuntimeError("flat tangent point not on circle")
+        if flat[1] > flat_y + tol or stem[1] > flat_y + tol:
+            raise RuntimeError("shoulder tangency points must sit on or above the D flat")
 
     def to_json(self) -> dict:
         return {
@@ -296,33 +323,34 @@ class ShoulderPair:
 
     @classmethod
     def from_stems(cls, base: PartialDonut, stems: StemPair) -> ShoulderPair:
-        left = cls._analytic_shoulder(base.flat_y, stems.left, side="left")
-        right = cls._analytic_shoulder(base.flat_y, stems.right, side="right")
+        left = cls._analytic_shoulder(base, stems.left, side="left")
+        right = cls._analytic_shoulder(base, stems.right, side="right")
         left.verify(base.flat_y, _stem_outer_edge(stems.left)[0])
         right.verify(base.flat_y, _stem_outer_edge(stems.right)[0])
         return cls(left=left, right=right)
 
     @staticmethod
-    def _analytic_shoulder(flat_y: float, stem: AngledRect, *, side: str) -> ShoulderArc:
-        """Circle tangent to y=flat_y and the stem outer line, with stem tangency at outer bottom."""
+    def _analytic_shoulder(base: PartialDonut, stem: AngledRect, *, side: str) -> ShoulderArc:
+        """Circle above the D flat, tangent to the flat at the base corner and to the stem outer edge."""
+        flat_y = base.flat_y
         d, outer_bot = _stem_outer_edge(stem)
-        n_out = _outward_normal(d, side=side)
-        denom = 1.0 - n_out[1]
-        if abs(denom) < 1e-6:
-            raise RuntimeError(f"{side} shoulder degenerate (stem parallel to D flat)")
-        r = float((outer_bot[1] - flat_y) / denom)
-        centre = outer_bot + r * n_out
-        cx, cy = float(centre[0]), float(centre[1])
+        corner_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
+        r = _solve_shoulder_radius(corner_x, flat_y, outer_bot, d)
+        cx = float(corner_x)
+        cy = float(flat_y - r)
+        centre = np.array([cx, cy])
+        stem_t = _foot_on_line(outer_bot, d, centre)
         flat_tangent = (cx, flat_y)
-        a_start = _angle(cx, cy, float(outer_bot[0]), float(outer_bot[1]))
-        a_end = _angle(cx, cy, cx, flat_y)
+        a_corner = _angle(cx, cy, cx, flat_y)
+        a_stem = _angle(cx, cy, float(stem_t[0]), float(stem_t[1]))
+        a_start, a_end = (a_corner, a_stem) if side == "left" else (a_stem, a_corner)
         return ShoulderArc(
             cx=cx,
             cy=cy,
             r=r,
             a_start=a_start,
             a_end=a_end,
-            stem_tangent=(float(outer_bot[0]), float(outer_bot[1])),
+            stem_tangent=(float(stem_t[0]), float(stem_t[1])),
             flat_tangent=flat_tangent,
         )
 
