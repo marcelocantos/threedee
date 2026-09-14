@@ -27,6 +27,7 @@ thickness = 3       # Plate thickness for export
 hole_round = 1      # Rounding on the ring hole's top and bottom edges
 corner_round = 1    # Rounding on the triangle and crescent cutout corners
 cutout_fillet = 0.5 # Fillet on the triangle and crescent top and bottom edges
+outer_fillet = 0.5  # Fillet on the outer top and bottom edges, except the foot arc
 
 # Stem: lines from the foot corners (±stem_hw, 0) tangent to the ring.
 d = hypot(stem_hw, ring_y)
@@ -65,6 +66,16 @@ cutout_edges = [
     and cutouts.distance_to(Vector((e @ 0.5).X, (e @ 0.5).Y, 0)) < 1e-6
 ]
 result = fillet(cutout_edges, cutout_fillet)
+
+# Outer contour top and bottom edges, except the foot's semicircular arc.
+outer = outline.faces()[0].outer_wire()
+outer_edges = [
+    e for e in result.edges()
+    if abs((e @ 0).Z - (e @ 1).Z) < 1e-9
+    and outer.distance_to(Vector((e @ 0.5).X, (e @ 0.5).Y, 0)) < 1e-6
+    and not (e.geom_type == GeomType.CIRCLE and abs(e.radius - foot_r) < 1e-6)
+]
+result = fillet(outer_edges, outer_fillet)
 
 export_stl(result, "ring-hook.stl")
 export_step(result, "ring-hook.step")
