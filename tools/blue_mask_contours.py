@@ -10,7 +10,7 @@ import argparse
 import json
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from math import atan2, cos, pi, sin, sqrt
 from pathlib import Path
 
@@ -25,8 +25,6 @@ OUT = Path(__file__).resolve().parent.parent / "export" / "ring-hook-edges.png"
 MIN_AREA = 5000
 # Stop stem bottoms slightly above the D cutout flat (image y down).
 D_FLAT_BACKOFF = 4.0
-# Slight shrink from pure tangency solve — left shoulder reads a touch large in photo.
-SHOULDER_RADIUS_SCALE = 0.94
 
 
 def mask_from_photo(rgb: np.ndarray) -> np.ndarray:
@@ -259,24 +257,38 @@ def _foot_on_line(p: np.ndarray, d: np.ndarray, c: np.ndarray) -> np.ndarray:
     return p + float(np.dot(c - p, d)) * d
 
 
-def _solve_shoulder_radius(corner_x: float, flat_y: float, outer_bot: np.ndarray, d: np.ndarray) -> float:
-    """Radius for centre (corner_x, flat_y - r) tangent to stem outer line and D flat from above."""
+def _line_normal_toward(d: np.ndarray, p: np.ndarray, toward: np.ndarray) -> np.ndarray:
+    """Unit normal to line (p, d) pointing toward `toward`."""
+    n = np.array([-d[1], d[0]], dtype=float)
+    if np.dot(toward - p, n) < 0:
+        n = -n
+    return n / np.linalg.norm(n)
 
-    def residual(r: float) -> float:
-        cy = flat_y - r
-        v = np.array([corner_x - outer_bot[0], cy - outer_bot[1]])
-        return abs(v[0] * d[1] - v[1] * d[0]) - r
 
-    span = float(np.hypot(outer_bot[0] - corner_x, outer_bot[1] - flat_y))
-    r_lo = span * 0.25
-    r_hi = span * 1.6
-    for _ in range(80):
-        mid = (r_lo + r_hi) / 2
-        if residual(mid) > 0:
-            r_lo = mid
-        else:
-            r_hi = mid
-    return (r_lo + r_hi) / 2
+def _shoulder_exterior_hint(flat_tangent_x: float, flat_y: float, *, side: str) -> np.ndarray:
+    """Point just outside the base corner — shoulder centres sit on this side of the stem."""
+    eps = 1.0
+    x = flat_tangent_x - eps if side == "left" else flat_tangent_x + eps
+    return np.array([x, flat_y - eps])
+
+
+def _shoulder_radius_from_tangents(
+    flat_tangent_x: float,
+    flat_y: float,
+    stem_p: np.ndarray,
+    stem_d: np.ndarray,
+    *,
+    side: str,
+) -> float:
+    """Radius from tangency to the D flat at flat_tangent_x and the stem outer line."""
+    exterior = _shoulder_exterior_hint(flat_tangent_x, flat_y, side=side)
+    n = _line_normal_toward(stem_d, stem_p, exterior)
+    return (n[0] * (flat_tangent_x - stem_p[0]) + n[1] * (flat_y - stem_p[1])) / (1 + n[1])
+
+
+def _shoulder_center_from_tangents(flat_tangent_x: float, flat_y: float, r: float) -> np.ndarray:
+    """Centre implied by horizontal flat tangency at (flat_tangent_x, flat_y) and radius r."""
+    return np.array([flat_tangent_x, flat_y - r])
 
 
 @dataclass
@@ -300,7 +312,7 @@ class ShoulderArc:
         flat = np.array(self.flat_tangent)
         if abs(self.cy + self.r - flat_y) > tol:
             raise RuntimeError(f"flat tangency off by {abs(self.cy + self.r - flat_y):.4f}px")
-        if abs(_line_distance(centre, stem_d, stem) - self.r) > max(tol, self.r * 0.08):
+        if abs(_line_distance(centre, stem_d, stem) - self.r) > tol:
             raise RuntimeError("stem-line tangency failed")
         if abs(np.linalg.norm(centre - flat) - self.r) > tol:
             raise RuntimeError("flat tangent point not on circle")
@@ -338,17 +350,15 @@ class ShoulderPair:
         """Circle above the D flat, tangent to the flat at the base corner and to the stem outer edge."""
         flat_y = base.flat_y
         d, outer_bot = _stem_outer_edge(stem)
-        corner_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
-        r = _solve_shoulder_radius(corner_x, flat_y, outer_bot, d) * SHOULDER_RADIUS_SCALE
-        cx = float(corner_x)
-        cy = float(flat_y - r)
-        centre = np.array([cx, cy])
-        foot = _foot_on_line(outer_bot, d, centre)
-        flat_tangent = (cx, flat_y)
-        a_corner = _angle(cx, cy, cx, flat_y)
-        a_stem = _angle(cx, cy, float(foot[0]), float(foot[1]))
+        flat_tangent_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
+        r = _shoulder_radius_from_tangents(flat_tangent_x, flat_y, outer_bot, d, side=side)
+        centre = _shoulder_center_from_tangents(flat_tangent_x, flat_y, r)
+        cx, cy = float(centre[0]), float(centre[1])
+        stem_t = _foot_on_line(outer_bot, d, centre)
+        flat_tangent = (flat_tangent_x, flat_y)
+        a_corner = _angle(cx, cy, flat_tangent_x, flat_y)
+        a_stem = _angle(cx, cy, float(stem_t[0]), float(stem_t[1]))
         a_start, a_end = _short_arc_sweep(a_corner, a_stem)
-        stem_t = (cx + r * cos(a_end), cy + r * sin(a_end))
         return ShoulderArc(
             cx=cx,
             cy=cy,
@@ -562,6 +572,26 @@ class StemPair:
             ),
         )
 
+    def trim_to_shoulders(self, shoulders: ShoulderPair) -> StemPair:
+        """Shorten stems so outer bottoms sit on the shoulder stem tangency points."""
+
+        def trim(stem: AngledRect, sh: ShoulderArc) -> AngledRect:
+            outer_top = np.array(stem.corners[0], dtype=float)
+            inner_top = np.array(stem.corners[1], dtype=float)
+            p_top = (outer_top + inner_top) / 2
+            inner_vec = inner_top - p_top
+            outer_bot = np.array(sh.stem_tangent, dtype=float)
+            p_bot = outer_bot + inner_vec
+            corners = _rect_corners(p_top, p_bot, inner_vec)
+            length = float(np.linalg.norm(p_bot - p_top))
+            return replace(stem, corners=corners, length=length)
+
+        return replace(
+            self,
+            left=trim(self.left, shoulders.left),
+            right=trim(self.right, shoulders.right),
+        )
+
     def to_json(self) -> dict:
         return {"kind": "stem_pair", "left": self.left.to_json(), "right": self.right.to_json()}
 
@@ -616,6 +646,9 @@ def main() -> None:
     base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
     shoulders = ShoulderPair.from_stems(base, stems)
+    stems = stems.trim_to_shoulders(shoulders)
+    shoulders.left.verify(base.flat_y, _stem_outer_edge(stems.left)[0])
+    shoulders.right.verify(base.flat_y, _stem_outer_edge(stems.right)[0])
     overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
 
     h, w = rgb.shape[:2]
