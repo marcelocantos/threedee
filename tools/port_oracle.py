@@ -17,6 +17,12 @@ Mesh booleans are exact (manifold3d). Circles in OpenSCAD are polygons, so
 the reference is rendered with ``$fn=120`` to keep facet error well under
 0.1 % of volume; per-call ``$fn`` (hex sockets etc.) is unaffected.
 
+References are rendered as OFF, not STL: OpenSCAD 2021's ASCII STL writes
+each facet's vertices at limited precision, and on large meshes enough of
+them fail to merge that the mesh comes back with hundreds of open edges.
+OFF keeps index-based topology, so the reference is manifold by
+construction. A pre-existing ``.stl`` reference is still accepted.
+
 Usage: ``python tools/port_oracle.py [name ...] [--diff-stl] [--threshold F]``
 """
 
@@ -42,6 +48,7 @@ REF_DIR = Path(os.environ.get("PORT_ORACLE_REF_DIR", EXPORT / "ref"))
 DIFF_DIR = EXPORT / "diff"
 LIBRARIES = {"gears.scad"}
 REF_FN = 120
+MERGE_DIGITS = 4  # merge vertices within 1e-4 mm: CGAL emits near-duplicate pairs
 
 
 @dataclass
@@ -59,9 +66,11 @@ class Report:
 
 def render_reference(scad: Path) -> Path:
     REF_DIR.mkdir(parents=True, exist_ok=True)
-    out = REF_DIR / (scad.stem + ".stl")
-    if out.exists() and out.stat().st_mtime >= scad.stat().st_mtime:
-        return out
+    for ext in (".off", ".stl"):
+        cached = REF_DIR / (scad.stem + ext)
+        if cached.exists() and cached.stat().st_mtime >= scad.stat().st_mtime:
+            return cached
+    out = REF_DIR / (scad.stem + ".off")
     subprocess.run(
         ["openscad", "-o", str(out), "-D", f"$fn={REF_FN}", str(scad)],
         check=True, capture_output=True, text=True, cwd=ROOT,
@@ -78,7 +87,7 @@ def load_manifold(path: Path) -> tuple[trimesh.Trimesh, Manifold | None]:
     still open is reported as not watertight rather than guessed at.
     """
     mesh = trimesh.load(path, force="mesh")
-    mesh.merge_vertices()
+    mesh.merge_vertices(digits_vertex=MERGE_DIGITS)
     mesh.update_faces(mesh.nondegenerate_faces())
     if mesh.volume < 0:
         mesh.invert()
