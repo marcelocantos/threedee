@@ -291,6 +291,82 @@ def _shoulder_center_from_tangents(flat_tangent_x: float, flat_y: float, r: floa
     return np.array([flat_tangent_x, flat_y - r])
 
 
+def _shoulder_contour_band(
+    outer: np.ndarray,
+    *,
+    corner_x: float,
+    flat_y: float,
+    stem_t: np.ndarray,
+    side: str,
+    arc: np.ndarray,
+) -> np.ndarray:
+    """Outer-contour samples along the shoulder fillet (exclude arc endpoints)."""
+    y0, y1 = stem_t[1] - 30, flat_y
+    if side == "left":
+        pts = outer[
+            (outer[:, 1] >= y0)
+            & (outer[:, 1] <= y1)
+            & (outer[:, 0] >= corner_x)
+            & (outer[:, 0] <= stem_t[0] + 15)
+        ]
+    else:
+        pts = outer[
+            (outer[:, 1] >= y0)
+            & (outer[:, 1] <= y1)
+            & (outer[:, 0] <= corner_x)
+            & (outer[:, 0] >= stem_t[0] - 15)
+        ]
+    if len(arc) < 3 or len(pts) == 0:
+        return pts
+    keep: list[np.ndarray] = []
+    n = len(arc)
+    for p in pts:
+        j = int(np.argmin(np.hypot(arc[:, 0] - p[0], arc[:, 1] - p[1])))
+        if 0.08 * n < j < 0.92 * n:
+            keep.append(p)
+    return np.array(keep) if len(keep) >= 20 else pts
+
+
+def _fit_shoulder_flat_tangent_x(
+    base: PartialDonut,
+    stem: AngledRect,
+    outer: np.ndarray,
+    *,
+    side: str,
+) -> float:
+    """Slide flat tangency along the base chord until the arc hugs the outer contour."""
+    flat_y = base.flat_y
+    d, stem_p = _stem_outer_edge(stem)
+    corner_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
+    lo, hi = (corner_x, base.cx) if side == "left" else (base.cx, corner_x)
+    best_tx = corner_x
+    best_err = float("inf")
+    for flat_tx in np.linspace(lo, hi, 200):
+        r = _shoulder_radius_from_tangents(flat_tx, flat_y, stem_p, d, side=side)
+        if r <= 20 or r >= 300:
+            continue
+        centre = _shoulder_center_from_tangents(flat_tx, flat_y, r)
+        stem_t = _foot_on_line(stem_p, d, centre)
+        if abs(_line_distance(centre, d, stem_t) - r) > 0.05:
+            continue
+        cx, cy = float(centre[0]), float(centre[1])
+        a_flat = _angle(cx, cy, flat_tx, flat_y)
+        a_stem = _angle(cx, cy, float(stem_t[0]), float(stem_t[1]))
+        a0, a1 = _short_arc_sweep(a_flat, a_stem)
+        arc = np.array(_arc_points(cx, cy, r, a0, a1, n=80))
+        band = _shoulder_contour_band(
+            outer, corner_x=corner_x, flat_y=flat_y, stem_t=stem_t, side=side, arc=arc
+        )
+        if len(band) < 25:
+            continue
+        dists = np.array([np.hypot(arc[:, 0] - p[0], arc[:, 1] - p[1]).min() for p in band])
+        err = float(np.median(dists))
+        if err < best_err:
+            best_err = err
+            best_tx = float(flat_tx)
+    return best_tx
+
+
 @dataclass
 class ShoulderArc:
     """Circular fillet tangent to the D flat and the stem outer edge."""
@@ -338,19 +414,21 @@ class ShoulderPair:
     right: ShoulderArc
 
     @classmethod
-    def from_stems(cls, base: PartialDonut, stems: StemPair) -> ShoulderPair:
-        left = cls._analytic_shoulder(base, stems.left, side="left")
-        right = cls._analytic_shoulder(base, stems.right, side="right")
+    def from_stems(cls, base: PartialDonut, stems: StemPair, outer: np.ndarray) -> ShoulderPair:
+        left = cls._analytic_shoulder(base, stems.left, outer=outer, side="left")
+        right = cls._analytic_shoulder(base, stems.right, outer=outer, side="right")
         left.verify(base.flat_y, _stem_outer_edge(stems.left)[0])
         right.verify(base.flat_y, _stem_outer_edge(stems.right)[0])
         return cls(left=left, right=right)
 
     @staticmethod
-    def _analytic_shoulder(base: PartialDonut, stem: AngledRect, *, side: str) -> ShoulderArc:
-        """Circle above the D flat, tangent to the flat at the base corner and to the stem outer edge."""
+    def _analytic_shoulder(
+        base: PartialDonut, stem: AngledRect, *, outer: np.ndarray, side: str
+    ) -> ShoulderArc:
+        """Circle tangent to the D flat and stem outer edge; radius from the outer contour."""
         flat_y = base.flat_y
         d, outer_bot = _stem_outer_edge(stem)
-        flat_tangent_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
+        flat_tangent_x = _fit_shoulder_flat_tangent_x(base, stem, outer, side=side)
         r = _shoulder_radius_from_tangents(flat_tangent_x, flat_y, outer_bot, d, side=side)
         centre = _shoulder_center_from_tangents(flat_tangent_x, flat_y, r)
         cx, cy = float(centre[0]), float(centre[1])
@@ -625,7 +703,7 @@ def main() -> None:
     slot = slot_hole(inners)
     base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
-    shoulders = ShoulderPair.from_stems(base, stems)
+    shoulders = ShoulderPair.from_stems(base, stems, loops[0].reshape(-1, 2).astype(float))
     overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
 
     h, w = rgb.shape[:2]
