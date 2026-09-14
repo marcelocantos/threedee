@@ -70,15 +70,21 @@ def render_reference(scad: Path) -> Path:
 
 
 def load_manifold(path: Path) -> tuple[trimesh.Trimesh, Manifold | None]:
+    """Load an STL as a trimesh (for bbox/centroid) and an exact Manifold.
+
+    OCC's STL export leaves duplicated seam vertices and the odd degenerate
+    triangle; merging vertices and dropping degenerate faces, then letting
+    manifold3d merge open edges within tolerance, closes them. Anything
+    still open is reported as not watertight rather than guessed at.
+    """
     mesh = trimesh.load(path, force="mesh")
     mesh.merge_vertices()
-    if not mesh.is_watertight:
-        trimesh.repair.fill_holes(mesh)
-    if not mesh.is_watertight:
-        return mesh, None
+    mesh.update_faces(mesh.nondegenerate_faces())
     if mesh.volume < 0:
         mesh.invert()
-    man = Manifold(Mesh(np.asarray(mesh.vertices, np.float32), np.asarray(mesh.faces, np.uint32)))
+    raw = Mesh(np.asarray(mesh.vertices, np.float32), np.asarray(mesh.faces, np.uint32))
+    raw.merge()
+    man = Manifold(raw)
     if man.status() != man.status().__class__.NoError:
         return mesh, None
     return mesh, man
