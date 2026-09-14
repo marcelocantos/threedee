@@ -51,11 +51,11 @@ def render(scad_src: str, out: Path, centre, distance, direction) -> None:
 
 
 def sheet(name: str) -> Path | None:
-    ref = EXPORT / "ref" / f"{name}.stl"
+    ref = next((p for p in (EXPORT / "ref" / f"{name}{ext}" for ext in (".off", ".stl")) if p.exists()), None)
     port = EXPORT / f"{name}.stl"
     missing = EXPORT / "diff" / f"{name}-missing.stl"
     extra = EXPORT / "diff" / f"{name}-extra.stl"
-    if not (ref.exists() and port.exists()):
+    if ref is None or not port.exists():
         return None
     import trimesh
     m = trimesh.load(ref, force="mesh")
