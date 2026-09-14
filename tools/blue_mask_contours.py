@@ -149,35 +149,6 @@ def _arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 4
     return [(cx + r * cos(a), cy + r * sin(a)) for a in np.linspace(a0, a1, n)]
 
 
-def _arc_sweep_error(
-    cx: float, cy: float, r: float, a0: float, sweep: float, band_pts: np.ndarray
-) -> float:
-    if abs(sweep) < 0.08 or abs(sweep) > pi * 1.05:
-        return float("inf")
-    arc = np.column_stack(
-        [cx + r * np.cos(a0 + np.linspace(0, sweep, 36)), cy + r * np.sin(a0 + np.linspace(0, sweep, 36))]
-    )
-    err = 0.0
-    for px, py in band_pts:
-        err += float(np.min(np.hypot(arc[:, 0] - px, arc[:, 1] - py)))
-    return err / len(band_pts)
-
-
-def _pick_arc_sweep(
-    cx: float, cy: float, r: float, a_stem: float, a_corner: float, band_pts: np.ndarray
-) -> tuple[float, float]:
-    d = (a_corner - a_stem) % (2 * pi)
-    opts: list[tuple[float, float]] = []
-    for sweep in {d, d - 2 * pi, d + 2 * pi}:
-        err = _arc_sweep_error(cx, cy, r, a_stem, sweep, band_pts)
-        if err < float("inf"):
-            opts.append((err, sweep))
-    if not opts:
-        return a_stem, a_corner
-    sweep = min(opts)[1]
-    return a_stem, a_stem + sweep
-
-
 def _semicircle_arc(cx: float, cy: float, r: float, n: int = 64) -> list[tuple[float, float]]:
     """Bottom semicircle: left chord end → bottom → right chord end (image y down)."""
     return [
@@ -259,18 +230,51 @@ class PartialDonut:
         }
 
 
+def _stem_outer_edge(stem: AngledRect) -> tuple[np.ndarray, np.ndarray]:
+    """Unit direction (top→bottom) and outer-bottom corner on the stem rectangle."""
+    outer_top = np.array(stem.corners[0], dtype=float)
+    outer_bot = np.array(stem.corners[3], dtype=float)
+    d = outer_bot - outer_top
+    d = d / np.linalg.norm(d)
+    return d, outer_bot
+
+
+def _outward_normal(d: np.ndarray, *, side: str) -> np.ndarray:
+    n = np.array([-d[1], d[0]]) if side == "left" else np.array([d[1], -d[0]])
+    return n / np.linalg.norm(n)
+
+
+def _line_distance(c: np.ndarray, d: np.ndarray, p: np.ndarray) -> float:
+    v = c - p
+    return float(abs(v[0] * d[1] - v[1] * d[0]))
+
+
 @dataclass
 class ShoulderArc:
-    """Concave shoulder fillet: circular arc from stem bottom to base corner."""
+    """Circular fillet tangent to the D flat and the stem outer edge."""
 
     cx: float
     cy: float
     r: float
     a_start: float
     a_end: float
+    stem_tangent: tuple[float, float]
+    flat_tangent: tuple[float, float]
 
     def arc_loop(self, n: int = 48) -> list[tuple[float, float]]:
         return _arc_points(self.cx, self.cy, self.r, self.a_start, self.a_end, n=n)
+
+    def verify(self, flat_y: float, stem_d: np.ndarray, *, tol: float = 1e-3) -> None:
+        centre = np.array([self.cx, self.cy])
+        stem = np.array(self.stem_tangent)
+        if abs(self.cy - self.r - flat_y) > tol:
+            raise RuntimeError(f"flat tangency off by {abs(self.cy - self.r - flat_y):.4f}px")
+        if abs(_line_distance(centre, stem_d, stem) - self.r) > tol:
+            raise RuntimeError("stem-line tangency failed")
+        if abs(np.linalg.norm(centre - stem) - self.r) > tol:
+            raise RuntimeError("stem tangent point not on circle")
+        if abs(np.linalg.norm(centre - np.array(self.flat_tangent)) - self.r) > tol:
+            raise RuntimeError("flat tangent point not on circle")
 
     def to_json(self) -> dict:
         return {
@@ -280,6 +284,8 @@ class ShoulderArc:
             "r": self.r,
             "a_start_deg": float(np.degrees(self.a_start)),
             "a_end_deg": float(np.degrees(self.a_end)),
+            "stem_tangent": list(self.stem_tangent),
+            "flat_tangent": list(self.flat_tangent),
         }
 
 
@@ -289,61 +295,36 @@ class ShoulderPair:
     right: ShoulderArc
 
     @classmethod
-    def from_contours(
-        cls,
-        outer: np.ndarray,
-        base: PartialDonut,
-        stems: StemPair,
-    ) -> ShoulderPair:
-        return cls(
-            left=cls._one_shoulder(outer, base, stems.left, side="left"),
-            right=cls._one_shoulder(outer, base, stems.right, side="right"),
+    def from_stems(cls, base: PartialDonut, stems: StemPair) -> ShoulderPair:
+        left = cls._analytic_shoulder(base.flat_y, stems.left, side="left")
+        right = cls._analytic_shoulder(base.flat_y, stems.right, side="right")
+        left.verify(base.flat_y, _stem_outer_edge(stems.left)[0])
+        right.verify(base.flat_y, _stem_outer_edge(stems.right)[0])
+        return cls(left=left, right=right)
+
+    @staticmethod
+    def _analytic_shoulder(flat_y: float, stem: AngledRect, *, side: str) -> ShoulderArc:
+        """Circle tangent to y=flat_y and the stem outer line, with stem tangency at outer bottom."""
+        d, outer_bot = _stem_outer_edge(stem)
+        n_out = _outward_normal(d, side=side)
+        denom = 1.0 - n_out[1]
+        if abs(denom) < 1e-6:
+            raise RuntimeError(f"{side} shoulder degenerate (stem parallel to D flat)")
+        r = float((outer_bot[1] - flat_y) / denom)
+        centre = outer_bot + r * n_out
+        cx, cy = float(centre[0]), float(centre[1])
+        flat_tangent = (cx, flat_y)
+        a_start = _angle(cx, cy, float(outer_bot[0]), float(outer_bot[1]))
+        a_end = _angle(cx, cy, cx, flat_y)
+        return ShoulderArc(
+            cx=cx,
+            cy=cy,
+            r=r,
+            a_start=a_start,
+            a_end=a_end,
+            stem_tangent=(float(outer_bot[0]), float(outer_bot[1])),
+            flat_tangent=flat_tangent,
         )
-
-    @staticmethod
-    def _one_shoulder(
-        outer: np.ndarray,
-        base: PartialDonut,
-        stem: AngledRect,
-        *,
-        side: str,
-    ) -> ShoulderArc:
-        outer_pts = outer.reshape(-1, 2).astype(float)
-        p_stem = np.array(stem.corners[3], dtype=float)
-        if side == "left":
-            p_corner = np.array([base.cx - base.r_outer, base.flat_y])
-            side_mask = outer_pts[:, 0] < base.cx - 50
-        else:
-            p_corner = np.array([base.cx + base.r_outer, base.flat_y])
-            side_mask = outer_pts[:, 0] > base.cx + 50
-        band = outer_pts[
-            side_mask
-            & (outer_pts[:, 1] > base.flat_y - 10)
-            & (outer_pts[:, 1] < p_stem[1] + 8)
-        ]
-        if len(band) < 20:
-            raise RuntimeError(f"too few {side} shoulder samples")
-        cx, cy, r = fit_circle(band)
-        cx, cy, r = ShoulderPair._refine_shoulder(cx, cy, r, band)
-        a_stem = _angle(cx, cy, float(p_stem[0]), float(p_stem[1]))
-        a_corner = _angle(cx, cy, float(p_corner[0]), float(p_corner[1]))
-        a_start, a_end = _pick_arc_sweep(cx, cy, r, a_stem, a_corner, band)
-        return ShoulderArc(cx=cx, cy=cy, r=r, a_start=a_start, a_end=a_end)
-
-    @staticmethod
-    def _refine_shoulder(cx: float, cy: float, r: float, band_pts: np.ndarray) -> tuple[float, float, float]:
-        best_err = float("inf")
-        best = (cx, cy, r)
-        for dcx in np.linspace(-18, 18, 13):
-            for dcy in np.linspace(-18, 18, 13):
-                for dr in np.linspace(-12, 12, 9):
-                    ccx, ccy, rr = cx + dcx, cy + dcy, max(r + dr, 8.0)
-                    rs = np.hypot(band_pts[:, 0] - ccx, band_pts[:, 1] - ccy)
-                    err = float(np.mean(np.abs(rs - rr)))
-                    if err < best_err:
-                        best_err = err
-                        best = (ccx, ccy, rr)
-        return best
 
     def to_json(self) -> dict:
         return {"kind": "shoulder_pair", "left": self.left.to_json(), "right": self.right.to_json()}
@@ -601,7 +582,7 @@ def main() -> None:
     slot = slot_hole(inners)
     base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
-    shoulders = ShoulderPair.from_contours(loops[0], base, stems)
+    shoulders = ShoulderPair.from_stems(base, stems)
     overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
 
     h, w = rgb.shape[:2]
