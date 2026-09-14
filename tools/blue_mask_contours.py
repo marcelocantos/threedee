@@ -152,6 +152,15 @@ def _short_arc_sweep(a0: float, a1: float) -> tuple[float, float]:
 
 
 def _arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 48) -> list[tuple[float, float]]:
+    """Arc angles from atan2(y - cy, x - cx) — used by shoulder fillets."""
+    a0, a1 = _short_arc_sweep(a0, a1)
+    if abs(a1 - a0) < 1e-6:
+        a1 = a0 + 1e-3
+    return [(cx + r * cos(a), cy + r * sin(a)) for a in np.linspace(a0, a1, n)]
+
+
+def _arc_points_y_down(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 48) -> list[tuple[float, float]]:
+    """Arc angles from atan2(-(y - cy), x - cx) — matches _semicircle_arc."""
     a0, a1 = _short_arc_sweep(a0, a1)
     if abs(a1 - a0) < 1e-6:
         a1 = a0 + 1e-3
@@ -289,7 +298,7 @@ class DCutout:
         right = (self.x_right, self.flat_y)
         a_left, a_right = self._junction_angles()
         a_start, a_end = _short_arc_sweep(a_left, a_right)
-        arc = _arc_points(self.cx, self.cy, self.r, a_start, a_end, n=n)
+        arc = _arc_points_y_down(self.cx, self.cy, self.r, a_start, a_end, n=n)
         return [left, right, *reversed(arc[1:-1])]
 
     def to_json(self) -> dict:
