@@ -16,30 +16,10 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from blue_hue_filter import DEFAULT_PHOTO, blue_hue_grayscale
+from blue_hue_filter import DEFAULT_PHOTO
+from ring_hook_mask import extract_loops, widget_mask
 
 OUT = Path(__file__).resolve().parent.parent / "export" / "ring-hook-contours.png"
-MIN_HOLE_AREA = 5000
-
-
-def extract_loops(mask: np.ndarray) -> tuple[np.ndarray, list[np.ndarray]]:
-    """Return binary mask and [outer, ...holes] contours (hole areas descending)."""
-    closed = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8), iterations=1)
-    contours, hierarchy = cv2.findContours(closed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-    if not contours:
-        raise RuntimeError("no contours in mask")
-    outer_i = int(np.argmax([cv2.contourArea(c) for c in contours]))
-    outer = contours[outer_i]
-    holes: list[np.ndarray] = []
-    if hierarchy is not None:
-        child = hierarchy[0][outer_i][2]
-        while child >= 0:
-            c = contours[child]
-            if cv2.contourArea(c) >= MIN_HOLE_AREA:
-                holes.append(c)
-            child = hierarchy[0][child][0]
-    holes.sort(key=lambda c: cv2.moments(c)["m01"] / cv2.moments(c)["m00"])
-    return closed, [outer, *holes]
 
 
 def _loop_label(i: int) -> str:
@@ -63,8 +43,8 @@ def main() -> None:
     args = p.parse_args()
 
     rgb = np.array(Image.open(args.photo).convert("RGB"))
-    mask = blue_hue_grayscale(rgb)
-    closed, loops = extract_loops(mask)
+    closed = widget_mask(rgb)
+    loops = extract_loops(closed)
     overlay = render_overlay(rgb, loops)
 
     h, w = rgb.shape[:2]
