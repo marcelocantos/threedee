@@ -10,7 +10,7 @@ import argparse
 import json
 import subprocess
 import sys
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import atan2, cos, pi, sin, sqrt
 from pathlib import Path
 
@@ -572,26 +572,6 @@ class StemPair:
             ),
         )
 
-    def trim_to_shoulders(self, shoulders: ShoulderPair) -> StemPair:
-        """Shorten stems so outer bottoms sit on the shoulder stem tangency points."""
-
-        def trim(stem: AngledRect, sh: ShoulderArc) -> AngledRect:
-            outer_top = np.array(stem.corners[0], dtype=float)
-            inner_top = np.array(stem.corners[1], dtype=float)
-            p_top = (outer_top + inner_top) / 2
-            inner_vec = inner_top - p_top
-            outer_bot = np.array(sh.stem_tangent, dtype=float)
-            p_bot = outer_bot + inner_vec
-            corners = _rect_corners(p_top, p_bot, inner_vec)
-            length = float(np.linalg.norm(p_bot - p_top))
-            return replace(stem, corners=corners, length=length)
-
-        return replace(
-            self,
-            left=trim(self.left, shoulders.left),
-            right=trim(self.right, shoulders.right),
-        )
-
     def to_json(self) -> dict:
         return {"kind": "stem_pair", "left": self.left.to_json(), "right": self.right.to_json()}
 
@@ -646,9 +626,6 @@ def main() -> None:
     base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
     shoulders = ShoulderPair.from_stems(base, stems)
-    stems = stems.trim_to_shoulders(shoulders)
-    shoulders.left.verify(base.flat_y, _stem_outer_edge(stems.left)[0])
-    shoulders.right.verify(base.flat_y, _stem_outer_edge(stems.right)[0])
     overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
 
     h, w = rgb.shape[:2]
