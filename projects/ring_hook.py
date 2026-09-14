@@ -6,7 +6,7 @@
 from build123d import *
 from math import cos, pi, sin
 
-# Measured from reference (mm). Y increases downward; extruded in Z.
+# Measured from reference (mm). Y counts down the page like the photo. Extruded in +Z.
 THICKNESS = 2.5
 
 RING_OD = 14
@@ -16,22 +16,22 @@ RING_R_INNER = RING_ID / 2
 RING_CY = RING_R  # ring center y; top flush at y=0
 
 Y_RING_BOTTOM = RING_OD
-Y_NECK_END = 28
-Y_BASE_CENTER = 32
+Y_NECK_END = 27
+Y_BASE_CENTER = 30
 BASE_R = 13
 
 NECK_HALF_W_TOP = 5.5
 NECK_HALF_W_BASE = 6.5
 
-TRI_APEX_Y = 30
+TRI_APEX_Y = 27
 TRI_HALF_W = 3
 
 BASE_CUT_HALF_W = 9
-BASE_CUT_TOP_Y = 31
+BASE_CUT_TOP_Y = 32
 
 
 def arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 16, skip_first: bool = False):
-    """Sample an arc; angles use y-down coordinates (0 at top of circle)."""
+    """Sample an arc; angles use y-down coordinates (0° at top of circle)."""
     pts = [
         (cx + r * sin(a), cy - r * cos(a))
         for a in (a0 + (a1 - a0) * i / n for i in range(n + 1))
@@ -53,11 +53,11 @@ def chain(*segments):
 def outer_profile_points():
     """Closed outer silhouette: ring + neck + semicircular base."""
     return chain(
-        arc_points(0, RING_CY, RING_R, pi / 2, -pi / 2),
+        arc_points(0, RING_CY, RING_R, 0, pi),
         [(NECK_HALF_W_TOP, Y_RING_BOTTOM + 1), (NECK_HALF_W_BASE, Y_NECK_END), (BASE_R, Y_BASE_CENTER)],
-        arc_points(0, Y_BASE_CENTER, BASE_R, 0, pi, n=24, skip_first=True),
+        arc_points(0, Y_BASE_CENTER, BASE_R, pi / 2, 3 * pi / 2, n=24, skip_first=True),
         [(-NECK_HALF_W_BASE, Y_NECK_END), (-NECK_HALF_W_TOP, Y_RING_BOTTOM + 1), (0, Y_RING_BOTTOM)],
-        arc_points(0, RING_CY, RING_R, -pi / 2, pi / 2, skip_first=True),
+        arc_points(0, RING_CY, RING_R, pi, 2 * pi, skip_first=True),
     )
 
 
@@ -65,7 +65,7 @@ def base_cutout_points():
     """D-shaped cutout in the base."""
     return chain(
         [(-BASE_CUT_HALF_W, BASE_CUT_TOP_Y), (BASE_CUT_HALF_W, BASE_CUT_TOP_Y)],
-        arc_points(0, BASE_CUT_TOP_Y, BASE_CUT_HALF_W, 0, pi, n=16, skip_first=True),
+        arc_points(0, BASE_CUT_TOP_Y, BASE_CUT_HALF_W, pi / 2, 3 * pi / 2, n=16, skip_first=True),
     )
 
 
@@ -90,7 +90,8 @@ export_stl(result, "ring-hook.stl")
 export_step(result, "ring-hook.step")
 
 try:
-    from ocp_vscode import show
-    show(result)
+    from ocp_vscode import Camera, show
+
+    show(Rot(0, 0, 180) * result, reset_camera=Camera.RESET)
 except ImportError:
     pass
