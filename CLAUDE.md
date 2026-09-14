@@ -7,7 +7,7 @@ Parametric 3D parts for 3D printing, built with
 
 - `projects/` — Individual part designs (one `.py` per part)
 - `export/` — Build output (STL + STEP), gitignored
-- `docs/targets.md` — Convergence targets
+- `bullseye.yaml` — Convergence targets (edit via the bullseye tools, not by hand)
 
 ## Build
 
@@ -32,7 +32,3 @@ Pushed to master.
 profile: base
 override:
   - pr-workflow: skip
-
-## TODO
-
-`docs/TODO.md`
