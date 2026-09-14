@@ -7,11 +7,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import sqrt
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PIL import Image
+
+# Profile void ratios (ring_hook_profile.py), applied to detected outer circles.
+RING_HOLE_RATIO = 4.0 / 7.0
+BASE_SLOT_RATIO = 5.0 / 9.0
+BASE_CUT_Y_RATIO = 35.0 / 42.3
 
 REF_PHOTO = Path(
     "/Users/marcelo/.cursor/projects/Users-marcelo-work-github-com-marcelocantos-threedee/assets/image-1789347656020-0.jpg"
@@ -262,6 +268,34 @@ def extend_inner_triangle(lines: list[Segment], ring: Circle) -> list[Segment]:
     return rest + extended
 
 
+@dataclass
+class Primitives:
+    """Detected outer geometry plus void exclusions."""
+
+    lines: list[Segment]
+    outer_circles: list[Circle]  # base, ear_l, ear_r, ring
+    void_circles: list[Circle]  # ring hole, base slot arc
+
+
+def void_geometry(outer: list[Circle], crop_blue: np.ndarray) -> tuple[list[Circle], Segment]:
+    """Inner concentric circles and the flat top of the base D-cutout."""
+    base, _ear_l, _ear_r, ring = outer
+    ys = np.where(crop_blue > 0)[0]
+    top, bot = int(ys.min()), int(ys.max())
+
+    ring_hole = Circle(ring.cx, ring.cy, ring.r * RING_HOLE_RATIO)
+    base_slot = Circle(base.cx, base.cy, base.r * BASE_SLOT_RATIO)
+
+    y_flat = top + BASE_CUT_Y_RATIO * (bot - top)
+    dy = y_flat - base.cy
+    if abs(dy) >= base_slot.r:
+        half = base_slot.r * 0.85
+    else:
+        half = sqrt(base_slot.r * base_slot.r - dy * dy)
+    cut_top = Segment(base.cx - half, y_flat, base.cx + half, y_flat)
+    return [ring_hole, base_slot], cut_top
+
+
 def pick_circles(circles: list[Circle], crop_blue: np.ndarray, h: int) -> list[Circle]:
     bottom = [c for c in circles if c.cy > 0.62 * h]
     base_hough = max(bottom, key=lambda c: c.r)
@@ -280,7 +314,7 @@ def pick_circles(circles: list[Circle], crop_blue: np.ndarray, h: int) -> list[C
     return [base, ear_l, ear_r, ring]
 
 
-def detect(crop: np.ndarray, crop_blue: np.ndarray) -> tuple[list[Segment], list[Circle]]:
+def detect(crop: np.ndarray, crop_blue: np.ndarray) -> Primitives:
     h, w = crop.shape[:2]
     gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
@@ -305,19 +339,25 @@ def detect(crop: np.ndarray, crop_blue: np.ndarray) -> tuple[list[Segment], list
     base_hough = max([c for c in circles if c.cy > 0.62 * h], key=lambda c: c.r)
     base = refine_base_circle(crop_blue, base_hough)
     kept_lines = filter_lines(lines, base, h)
-    kept_circles = pick_circles(circles, crop_blue, h)
-    kept_lines = extend_inner_triangle(kept_lines, kept_circles[3])
-    return kept_lines, kept_circles
+    outer_circles = pick_circles(circles, crop_blue, h)
+    kept_lines = extend_inner_triangle(kept_lines, outer_circles[3])
+    void_circles, cut_top = void_geometry(outer_circles, crop_blue)
+    kept_lines = kept_lines + [cut_top]
+    return Primitives(kept_lines, outer_circles, void_circles)
 
 
-def render(crop: np.ndarray, lines: list[Segment], circles: list[Circle]) -> np.ndarray:
+def render(crop: np.ndarray, prim: Primitives) -> np.ndarray:
     h, w = crop.shape[:2]
     vis = crop.copy()
-    for ln in lines:
+    for ln in prim.lines:
         cv2.line(vis, (int(ln.x1), int(ln.y1)), (int(ln.x2), int(ln.y2)), (0, 180, 255), 3)
-    for c, col in zip(circles, [(255, 120, 0), (255, 200, 0), (255, 200, 0), (255, 80, 180)]):
+    outer_cols = [(255, 120, 0), (255, 200, 0), (255, 200, 0), (255, 80, 180)]
+    void_cols = [(255, 140, 210), (255, 170, 90)]
+    for c, col in zip(prim.outer_circles, outer_cols):
         cv2.circle(vis, (int(c.cx), int(c.cy)), int(c.r), col, 3)
         cv2.circle(vis, (int(c.cx), int(c.cy)), 4, (0, 255, 0), -1)
+    for c, col in zip(prim.void_circles, void_cols):
+        cv2.circle(vis, (int(c.cx), int(c.cy)), int(c.r), col, 2)
     panel = np.full((h, w * 2 + 24, 3), 255, np.uint8)
     panel[:, :w] = crop
     panel[:, w + 24 :] = vis
@@ -327,12 +367,17 @@ def render(crop: np.ndarray, lines: list[Segment], circles: list[Circle]) -> np.
 def main() -> None:
     ref = np.array(Image.open(REF_PHOTO))
     crop, crop_blue = blue_crop(ref)
-    lines, circles = detect(crop, crop_blue)
-    panel = render(crop, lines, circles)
+    prim = detect(crop, crop_blue)
+    panel = render(crop, prim)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(panel).save(OUT)
-    print(f"lines kept: {len(lines)}")
-    print(f"circles: base r={circles[0].r:.0f} ring r={circles[3].r:.0f}")
+    base, _ear_l, _ear_r, ring = prim.outer_circles
+    ring_hole, base_slot = prim.void_circles
+    cut = prim.lines[-1]
+    print(f"lines: {len(prim.lines)}")
+    print(f"outer: base r={base.r:.0f} ring r={ring.r:.0f}")
+    print(f"voids: ring hole r={ring_hole.r:.0f} base slot r={base_slot.r:.0f}")
+    print(f"base cut top: y={cut.y1:.0f} x=[{cut.x1:.0f},{cut.x2:.0f}]")
     print(f"saved {OUT}")
 
 
