@@ -174,6 +174,67 @@ def _sample_stem_angle(
     return float(atan2(abs(d[0]), d[1]))
 
 
+def _stem_edge_error(
+    ring: RingDonut,
+    theta: float,
+    outer: np.ndarray,
+    tri: np.ndarray,
+    cx: float,
+    *,
+    side: str,
+    y_top: float,
+    y_bot: float,
+) -> float:
+    """Mean squared x error of tangent stem edges vs contour boundaries."""
+    half_w = (ring.r_outer - ring.r_inner) / 2
+    d, p = _stem_axes(theta, side=side)
+    centre = np.array([ring.cx, ring.cy])
+    anchor = centre - ((ring.r_inner + ring.r_outer) / 2) * p
+    outer_origin = anchor - half_w * p
+    inner_origin = anchor + half_w * p
+    err = 0.0
+    n = 0
+    for y in np.linspace(y_top, y_bot, 36):
+        xo = _edge_x_at_y(outer, y, cx, side=side)
+        xi = _inner_x_at_y(tri, y, cx, side=side)
+        if xo is None or xi is None:
+            continue
+        s = (y - outer_origin[1]) / d[1]
+        if s < 0:
+            continue
+        x_outer = outer_origin[0] + s * d[0]
+        x_inner = inner_origin[0] + s * d[0]
+        err += (x_outer - xo) ** 2 + (x_inner - xi) ** 2
+        n += 2
+    return err / n if n else float("inf")
+
+
+def _fit_stem_theta(
+    ring: RingDonut,
+    outer: np.ndarray,
+    tri: np.ndarray,
+    cx: float,
+    *,
+    side: str,
+    y_top: float,
+    y_bot: float,
+) -> float:
+    """Contour lean, refined so tangent stem edges track outer and void boundaries."""
+    seed = _sample_stem_angle(outer, tri, cx, side=side, y_top=y_top, y_bot=y_bot)
+    span = 0.10 if side == "left" else 0.06
+    thetas = np.linspace(max(0.005, seed - span), seed + span, 120)
+    best = seed
+    best_err = float("inf")
+    for theta in thetas:
+        err = _stem_edge_error(
+            ring, float(theta), outer, tri, cx, side=side, y_top=y_top, y_bot=y_bot
+        )
+        if err < best_err:
+            best_err = err
+            best = float(theta)
+    return best
+
+
 def _stem_axes(theta: float, *, side: str) -> tuple[np.ndarray, np.ndarray]:
     """Unit centreline direction d and inner normal p (toward ring centre)."""
     if side == "left":
@@ -258,17 +319,23 @@ class StemPair:
         y_top = float(tri_pts[:, 1].min())
         y_bot = float(tri_pts[:, 1].max())
         y_top = max(y_top, ring.cy + ring.r_inner * 0.85)
-        theta = float(
-            np.median(
-                [
-                    _sample_stem_angle(outer, tri, cx, side="left", y_top=y_top, y_bot=y_bot),
-                    _sample_stem_angle(outer, tri, cx, side="right", y_top=y_top, y_bot=y_bot),
-                ]
-            )
-        )
         return cls(
-            left=_analytic_stem(ring, theta, flat_y, side="left"),
-            right=_analytic_stem(ring, theta, flat_y, side="right"),
+            left=_analytic_stem(
+                ring,
+                _fit_stem_theta(
+                    ring, outer, tri, cx, side="left", y_top=y_top, y_bot=y_bot
+                ),
+                flat_y,
+                side="left",
+            ),
+            right=_analytic_stem(
+                ring,
+                _fit_stem_theta(
+                    ring, outer, tri, cx, side="right", y_top=y_top, y_bot=y_bot
+                ),
+                flat_y,
+                side="right",
+            ),
         )
 
     def to_json(self) -> dict:
