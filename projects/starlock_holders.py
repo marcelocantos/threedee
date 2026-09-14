@@ -5,6 +5,8 @@
 
 from build123d import *
 
+e = 0.001
+
 rail_l = 175
 rail_w = 12.6
 rail_h = 3.5
@@ -21,41 +23,79 @@ rounding = 0.8
 
 
 def holder(rail_length, stem_range, holes):
-    """Build a single holder rail with stems."""
-    with BuildPart() as h:
-        # Rail
-        Box(rail_length, rail_w, rail_h)
+    """Build a single holder rail with stems (mirrors the SCAD `holder` module).
 
-        # Screw holes
-        for x in holes:
-            cone_h = rail_h
-            Pos(x, 0, -rail_h / 2) * Cone(
-                bottom_radius=1.5, top_radius=1.5 + cone_h,
-                height=cone_h, align=Align.MIN,
-                mode=Mode.SUBTRACT,
-            )
+    SCAD reference:
+        difference() {
+            cube([rail_l, rail_w, rail_h], center=true);
+            for (x = holes)
+                translate([x, 0, -rail_h/2-e])
+                    cylinder(d1=3, d2=3+2*h, h=h, $fn=20);  # h = rail_h + 2e
+        }
+        for (i = range) {
+            translate([i * stem_spacing, 0, 0]) {
+                minkowski() {
+                    cylinder(d=stem_d-2*rounding, h=stem_h-rounding);
+                    sphere(r=rounding);
+                }
+                translate([0, 0, tab_h/2])
+                    cuboid([tab_w, tab_t, tab_h], rounding=rounding, anchor=CENTER);
+            }
+        }
+    """
+    # Rail: centered cube, so z spans [-rail_h/2, rail_h/2].
+    part = Box(rail_length, rail_w, rail_h)
 
-        # Stems and tabs
-        for i in stem_range:
-            x = i * stem_spacing
-            # Rounded stem (cylinder + sphere cap approximation via fillet)
-            with BuildPart(Plane.XY.offset(0), mode=Mode.ADD) as stem:
-                Pos(x, 0, 0) * Cylinder(radius=(stem_d - 2 * rounding) / 2, height=stem_h - rounding, align=Align.MIN)
-            # Tab
-            Pos(x, 0, tab_h / 2) * Box(tab_w, tab_t, tab_h)
+    # Countersink screw holes: cone flaring upward from the rail's underside,
+    # straddling both faces by epsilon to guarantee a clean cut.
+    hole_h = rail_h + 2 * e
+    for x in holes:
+        cone = Pos(x, 0, -rail_h / 2 - e) * Cone(
+            bottom_radius=1.5,
+            top_radius=1.5 + hole_h,
+            height=hole_h,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+        part = part - cone
 
-    return h.part
+    # Stems and tabs.
+    stem_radius = (stem_d - 2 * rounding) / 2
+    tab_box = Box(tab_w, tab_t, tab_h)
+    tab_box = fillet(tab_box.edges(), radius=rounding)
+
+    for i in stem_range:
+        x = i * stem_spacing
+
+        # SCAD `minkowski()` of a cylinder with a sphere is a true 3D outward
+        # offset (rounds every edge by the sphere radius), not a fillet of
+        # selected edges — build123d's `offset(kind=Kind.ARC)` reproduces it
+        # exactly. The plain OpenSCAD `cylinder()` is min-aligned (z in
+        # [0, stem_h - rounding]) before the offset grows it by `rounding`
+        # in every direction, so the finished stem spans z in
+        # [-rounding, stem_h].
+        stem_cyl = Pos(x, 0, 0) * Cylinder(
+            radius=stem_radius,
+            height=stem_h - rounding,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+        stem = offset(stem_cyl, amount=rounding, kind=Kind.ARC)
+        part = part + stem
+
+        tab = Pos(x, 0, tab_h / 2) * tab_box
+        part = part + tab
+
+    return part
 
 
 parts = []
 
-# Two holders with 3 stems each, range [-1, 0, 1]
+# Two holders with 3 stems each, range [-1, 0, 1].
 for j in range(2):
     x = rail_l / 2 - 30
     h = holder(rail_l, range(-1, 2), [-x, x])
     parts.append(Pos(0, j * 2 * rail_w, 0) * h)
 
-# Two holders with 4 stems each, range [-1.5, -0.5, 0.5, 1.5]
+# Two holders with 4 stems each, range [-1.5, -0.5, 0.5, 1.5].
 for j in range(2, 4):
     l = rail_l + stem_spacing
     x = l / 2 - 30
