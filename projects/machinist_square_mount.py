@@ -61,10 +61,11 @@ hole_d = 5
 hole_offset_x = 32
 hole_spacing = 35
 
+hole_align = (Align.CENTER, Align.CENTER, Align.MIN)
 for i in range(2):
     x = hole_offset_x + i * hole_spacing
-    body = body - Pos(x, 25 + 15, 0) * Cylinder(radius=hole_d / 2, height=h, align=Align.MIN)
-    body = body - Pos(x, 25 + 15, 5) * Cylinder(radius=6, height=h, align=Align.MIN)
+    body = body - Pos(x, 25 + 15, 0) * Cylinder(radius=hole_d / 2, height=h, align=hole_align)
+    body = body - Pos(x, 25 + 15, 5) * Cylinder(radius=6, height=h, align=hole_align)
 
 result = body
 
