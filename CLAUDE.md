@@ -7,7 +7,6 @@ Parametric 3D parts for 3D printing, built with
 
 - `projects/` — Individual part designs (one `.py` per part)
 - `export/` — Build output (STL + STEP), gitignored
-- `tools/` — Port oracle (OpenSCAD vs build123d) and render sheets
 - `bullseye.yaml` — Convergence targets (edit via the bullseye tools, not by hand)
 
 ## Build
@@ -43,8 +42,6 @@ Every defect in the 2026-09 port audit came from one of these:
   +x); port it as `RegularPolygon`, not a circle.
 - `Polygon` points must be counterclockwise; clockwise gives a reversed
   face that never fuses with its neighbours.
-- Verify with `make oracle` (tools/port_oracle.py) while the `.scad`
-  still exists; delete the `.scad` only after the oracle passes.
 
 ## Delivery
 
