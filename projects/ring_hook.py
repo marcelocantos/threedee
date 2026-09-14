@@ -24,6 +24,7 @@ tri_top = 21        # Triangular cutout: top edge height
 tri_hw = 3.0        # Triangular cutout: half-width at the top
 tri_apex = 0.5      # Triangular cutout: apex height
 thickness = 3       # Plate thickness for export
+hole_round = 1      # Rounding on the ring hole's top and bottom edges
 
 # Stem: lines from the foot corners (±stem_hw, 0) tangent to the ring.
 d = hypot(stem_hw, ring_y)
@@ -48,6 +49,8 @@ dcut = Circle(d_r) & Pos(0, -d_flat) * Rectangle(2 * d_r, d_r, align=(Align.CENT
 
 profile = outline - hole - tri - dcut
 result = extrude(profile, thickness)
+hole_edges = [e for e in result.edges().filter_by(GeomType.CIRCLE) if abs(e.radius - hole_r) < 1e-6]
+result = fillet(hole_edges, hole_round)
 
 export_stl(result, "ring-hook.stl")
 export_step(result, "ring-hook.step")
