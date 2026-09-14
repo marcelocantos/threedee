@@ -11,7 +11,7 @@ import json
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
-from math import atan2, sqrt
+from math import atan2, cos, sin, sqrt
 from pathlib import Path
 
 import cv2
@@ -23,6 +23,8 @@ from blue_hue_filter import DEFAULT_PHOTO, blue_hue_grayscale
 
 OUT = Path(__file__).resolve().parent.parent / "export" / "ring-hook-edges.png"
 MIN_AREA = 5000
+# Stop stem bottoms slightly above the D cutout flat (image y down).
+D_FLAT_BACKOFF = 4.0
 
 
 def mask_from_photo(rgb: np.ndarray) -> np.ndarray:
@@ -128,6 +130,79 @@ def triangle_hole(inners: list[np.ndarray]) -> np.ndarray:
     return sorted(inners, key=lambda c: cv2.moments(c)["m01"] / cv2.moments(c)["m00"])[1]
 
 
+def slot_hole(inners: list[np.ndarray]) -> np.ndarray:
+    """Bottom D-slot inner loop."""
+    return sorted(inners, key=lambda c: cv2.moments(c)["m01"] / cv2.moments(c)["m00"])[2]
+
+
+def d_flat_y(slot: np.ndarray) -> float:
+    return float(slot.reshape(-1, 2)[:, 1].min())
+
+
+def _rect_corners(p_top: np.ndarray, p_bot: np.ndarray, inner_vec: np.ndarray) -> list[tuple[float, float]]:
+    outer_vec = -inner_vec
+    return [
+        tuple(p_top + outer_vec),
+        tuple(p_top + inner_vec),
+        tuple(p_bot + inner_vec),
+        tuple(p_bot + outer_vec),
+    ]
+
+
+def _sample_stem_angle(
+    outer: np.ndarray,
+    tri: np.ndarray,
+    cx: float,
+    *,
+    side: str,
+    y_top: float,
+    y_bot: float,
+) -> float:
+    """Lean from vertical (radians), symmetrised magnitude only."""
+    mids: list[tuple[float, float]] = []
+    for y in np.linspace(y_top, y_bot, 40):
+        xo = _edge_x_at_y(outer, y, cx, side=side)
+        xi = _inner_x_at_y(tri, y, cx, side=side)
+        if xo is None or xi is None:
+            continue
+        if abs(xi - xo) < 8:
+            continue
+        mids.append(((xo + xi) / 2, float(y)))
+    if len(mids) < 4:
+        raise RuntimeError(f"could not sample {side} stem")
+    _, d = fit_line(np.array(mids))
+    return float(atan2(abs(d[0]), d[1]))
+
+
+def _stem_axes(theta: float, *, side: str) -> tuple[np.ndarray, np.ndarray]:
+    """Unit centreline direction d and inner normal p (toward ring centre)."""
+    if side == "left":
+        d = np.array([sin(theta), cos(theta)])
+        p = np.array([cos(theta), -sin(theta)])
+    else:
+        d = np.array([-sin(theta), cos(theta)])
+        p = np.array([-cos(theta), -sin(theta)])
+    return d, p
+
+
+def _analytic_stem(ring: RingDonut, theta: float, flat_y: float, *, side: str) -> AngledRect:
+    """Rectangle with both long edges tangent to the ring inner and outer circles."""
+    centre = np.array([ring.cx, ring.cy])
+    half_w = (ring.r_outer - ring.r_inner) / 2
+    d, p = _stem_axes(theta, side=side)
+    # Unique centreline through the ring annulus midline; top corners sit on the circles.
+    anchor = centre - ((ring.r_inner + ring.r_outer) / 2) * p
+    bottom_y = flat_y - D_FLAT_BACKOFF
+    t_bot = (bottom_y - anchor[1] - half_w * sin(theta)) / d[1]
+    p_top = anchor
+    p_bot = anchor + t_bot * d
+    inner_vec = half_w * p
+    corners = _rect_corners(p_top, p_bot, inner_vec)
+    angle = float(np.degrees(atan2(d[1], d[0])))
+    length = float(np.linalg.norm(p_bot - p_top))
+    return AngledRect(corners=corners, width=half_w * 2, length=length, angle_deg=angle)
+
+
 def _edge_x_at_y(contour: np.ndarray, y: float, cx: float, *, side: str, margin: float = 3.0) -> float | None:
     pts = contour.reshape(-1, 2).astype(float)
     band = pts[np.abs(pts[:, 1] - y) < margin]
@@ -176,67 +251,25 @@ class StemPair:
 
     @classmethod
     def from_contours(
-        cls, outer: np.ndarray, tri: np.ndarray, ring: RingDonut
+        cls, outer: np.ndarray, tri: np.ndarray, ring: RingDonut, flat_y: float
     ) -> StemPair:
         cx = ring.cx
         tri_pts = tri.reshape(-1, 2).astype(float)
         y_top = float(tri_pts[:, 1].min())
         y_bot = float(tri_pts[:, 1].max())
         y_top = max(y_top, ring.cy + ring.r_inner * 0.85)
-
-        return cls(
-            left=cls._one_rect(outer, tri, cx, side="left", y_top=y_top, y_bot=y_bot),
-            right=cls._one_rect(outer, tri, cx, side="right", y_top=y_top, y_bot=y_bot),
+        theta = float(
+            np.median(
+                [
+                    _sample_stem_angle(outer, tri, cx, side="left", y_top=y_top, y_bot=y_bot),
+                    _sample_stem_angle(outer, tri, cx, side="right", y_top=y_top, y_bot=y_bot),
+                ]
+            )
         )
-
-    @staticmethod
-    def _one_rect(
-        outer: np.ndarray,
-        tri: np.ndarray,
-        cx: float,
-        *,
-        side: str,
-        y_top: float,
-        y_bot: float,
-    ) -> AngledRect:
-        mids: list[tuple[float, float]] = []
-        widths: list[float] = []
-        for y in np.linspace(y_top, y_bot, 40):
-            xo = _edge_x_at_y(outer, y, cx, side=side)
-            xi = _inner_x_at_y(tri, y, cx, side=side)
-            if xo is None or xi is None:
-                continue
-            w = abs(xi - xo)
-            if w < 8:
-                continue
-            xm = (xo + xi) / 2
-            mids.append((xm, float(y)))
-            widths.append(w)
-
-        if len(mids) < 4:
-            raise RuntimeError(f"could not sample {side} stem")
-        mids_arr = np.array(mids)
-        c, d = fit_line(mids_arr)
-        d = d / np.linalg.norm(d)
-        if d[1] < 0:
-            d = -d
-        perp = np.array([-d[1], d[0]])
-
-        t_vals = (mids_arr - c) @ d
-        t0, t1 = float(t_vals.min()), float(t_vals.max())
-        p0 = c + t0 * d
-        p1 = c + t1 * d
-        half_w = float(np.median(widths)) / 2
-
-        corners = [
-            tuple(p0 + half_w * perp),
-            tuple(p0 - half_w * perp),
-            tuple(p1 - half_w * perp),
-            tuple(p1 + half_w * perp),
-        ]
-        angle = float(np.degrees(atan2(d[1], d[0])))
-        length = float(np.hypot(*(p1 - p0)))
-        return AngledRect(corners=corners, width=half_w * 2, length=length, angle_deg=angle)
+        return cls(
+            left=_analytic_stem(ring, theta, flat_y, side="left"),
+            right=_analytic_stem(ring, theta, flat_y, side="right"),
+        )
 
     def to_json(self) -> dict:
         return {"kind": "stem_pair", "left": self.left.to_json(), "right": self.right.to_json()}
@@ -276,7 +309,8 @@ def main() -> None:
     loops = contour_edges(mask)
     inners = loops[1:]
     ring = RingDonut.from_loops(loops[0], inners)
-    stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring)
+    slot = slot_hole(inners)
+    stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
     overlay = render_overlay(rgb, loops, ring, stems)
 
     h, w = rgb.shape[:2]
