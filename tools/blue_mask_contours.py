@@ -161,27 +161,50 @@ class PartialDonut:
 
     @classmethod
     def from_contours(cls, outer: np.ndarray, ring: RingDonut) -> PartialDonut:
-        cx = ring.cx
         outer_pts = outer.reshape(-1, 2).astype(float)
         y_lo = ring.cy + ring.r_outer * 0.8
         y_hi = float(np.percentile(outer_pts[:, 1], 97))
         best_y = y_lo
         best_w = 0.0
-        for y in np.linspace(y_lo, y_hi, 100):
-            x_left = _edge_x_at_y(outer, float(y), cx, side="left")
-            x_right = _edge_x_at_y(outer, float(y), cx, side="right")
+        for y in np.linspace(y_lo, y_hi, 120):
+            x_left = _edge_x_at_y(outer, float(y), ring.cx, side="left")
+            x_right = _edge_x_at_y(outer, float(y), ring.cx, side="right")
             if x_left is None or x_right is None:
                 continue
             width = x_right - x_left
             if width > best_w:
                 best_w = width
                 best_y = float(y)
-        x_left = _edge_x_at_y(outer, best_y, cx, side="left")
-        x_right = _edge_x_at_y(outer, best_y, cx, side="right")
+        x_left = _edge_x_at_y(outer, best_y, ring.cx, side="left")
+        x_right = _edge_x_at_y(outer, best_y, ring.cx, side="right")
         if x_left is None or x_right is None:
             raise RuntimeError("could not locate base flat chord")
-        r_outer = float(((cx - x_left) + (x_right - cx)) / 2)
-        return cls(cx=cx, flat_y=best_y, r_outer=r_outer)
+        cx = float((x_left + x_right) / 2)
+        flat_y = best_y
+        arc_pts = outer_pts[outer_pts[:, 1] > flat_y + 6]
+        if len(arc_pts) < 40:
+            raise RuntimeError("too few base arc samples")
+        cx, flat_y, r_outer = cls._refine_semicircle(cx, flat_y, arc_pts)
+        return cls(cx=cx, flat_y=flat_y, r_outer=r_outer)
+
+    @staticmethod
+    def _refine_semicircle(
+        cx: float, flat_y: float, arc_pts: np.ndarray
+    ) -> tuple[float, float, float]:
+        """Nudge centre and radius so the arc hugs the outer silhouette."""
+        best_err = float("inf")
+        best = (cx, flat_y, float(np.median(np.hypot(arc_pts[:, 0] - cx, arc_pts[:, 1] - flat_y))))
+        for dcx in np.linspace(-12, 10, 23):
+            for dfy in np.linspace(-20, 8, 29):
+                ccx = cx + dcx
+                cfy = flat_y + dfy
+                rs = np.hypot(arc_pts[:, 0] - ccx, arc_pts[:, 1] - cfy)
+                r = float(np.median(rs))
+                err = float(np.mean(np.abs(rs - r)))
+                if err < best_err:
+                    best_err = err
+                    best = (ccx, cfy, r)
+        return best
 
     def outer_loop(self) -> list[tuple[float, float]]:
         left = (self.cx - self.r_outer, self.flat_y)
