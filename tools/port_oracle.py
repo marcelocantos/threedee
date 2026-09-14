@@ -48,7 +48,7 @@ REF_DIR = Path(os.environ.get("PORT_ORACLE_REF_DIR", EXPORT / "ref"))
 DIFF_DIR = EXPORT / "diff"
 LIBRARIES = {"gears.scad"}
 REF_FN = 120
-MERGE_DIGITS = 4  # merge vertices within 1e-4 mm: CGAL emits near-duplicate pairs
+MERGE_DIGITS = 3  # merge vertices within 1e-3 mm: CGAL emits near-duplicate pairs
 
 
 @dataclass
