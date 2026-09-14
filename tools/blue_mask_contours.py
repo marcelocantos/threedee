@@ -155,7 +155,7 @@ def _arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 4
     a0, a1 = _short_arc_sweep(a0, a1)
     if abs(a1 - a0) < 1e-6:
         a1 = a0 + 1e-3
-    return [(cx + r * cos(a), cy + r * sin(a)) for a in np.linspace(a0, a1, n)]
+    return [(cx + r * cos(a), cy - r * sin(a)) for a in np.linspace(a0, a1, n)]
 
 
 def _semicircle_arc(cx: float, cy: float, r: float, n: int = 64) -> list[tuple[float, float]]:
@@ -284,11 +284,11 @@ class DCutout:
         return a_left, a_right
 
     def inner_loop(self, n: int = 48) -> list[tuple[float, float]]:
-        """Closed loop: flat top chord + lower circular arc (image y down)."""
-        a_left, a_right = self._junction_angles()
-        a_start, a_end = _short_arc_sweep(a_left, a_right)
+        """Flat top chord meeting a bottom arc at both ends — no vertical legs."""
         left = (self.x_left, self.flat_y)
         right = (self.x_right, self.flat_y)
+        a_left, a_right = self._junction_angles()
+        a_start, a_end = _short_arc_sweep(a_left, a_right)
         arc = _arc_points(self.cx, self.cy, self.r, a_start, a_end, n=n)
         return [left, right, *reversed(arc[1:-1])]
 
