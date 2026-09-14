@@ -139,6 +139,45 @@ def d_flat_y(slot: np.ndarray) -> float:
     return float(slot.reshape(-1, 2)[:, 1].min())
 
 
+def _angle(cx: float, cy: float, x: float, y: float) -> float:
+    return float(atan2(y - cy, x - cx))
+
+
+def _arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 48) -> list[tuple[float, float]]:
+    if abs(a1 - a0) < 1e-6:
+        a1 = a0 + 1e-3
+    return [(cx + r * cos(a), cy + r * sin(a)) for a in np.linspace(a0, a1, n)]
+
+
+def _arc_sweep_error(
+    cx: float, cy: float, r: float, a0: float, sweep: float, band_pts: np.ndarray
+) -> float:
+    if abs(sweep) < 0.08 or abs(sweep) > pi * 1.05:
+        return float("inf")
+    arc = np.column_stack(
+        [cx + r * np.cos(a0 + np.linspace(0, sweep, 36)), cy + r * np.sin(a0 + np.linspace(0, sweep, 36))]
+    )
+    err = 0.0
+    for px, py in band_pts:
+        err += float(np.min(np.hypot(arc[:, 0] - px, arc[:, 1] - py)))
+    return err / len(band_pts)
+
+
+def _pick_arc_sweep(
+    cx: float, cy: float, r: float, a_stem: float, a_corner: float, band_pts: np.ndarray
+) -> tuple[float, float]:
+    d = (a_corner - a_stem) % (2 * pi)
+    opts: list[tuple[float, float]] = []
+    for sweep in {d, d - 2 * pi, d + 2 * pi}:
+        err = _arc_sweep_error(cx, cy, r, a_stem, sweep, band_pts)
+        if err < float("inf"):
+            opts.append((err, sweep))
+    if not opts:
+        return a_stem, a_corner
+    sweep = min(opts)[1]
+    return a_stem, a_stem + sweep
+
+
 def _semicircle_arc(cx: float, cy: float, r: float, n: int = 64) -> list[tuple[float, float]]:
     """Bottom semicircle: left chord end → bottom → right chord end (image y down)."""
     return [
@@ -218,6 +257,96 @@ class PartialDonut:
             "flat_y": self.flat_y,
             "r_outer": self.r_outer,
         }
+
+
+@dataclass
+class ShoulderArc:
+    """Concave shoulder fillet: circular arc from stem bottom to base corner."""
+
+    cx: float
+    cy: float
+    r: float
+    a_start: float
+    a_end: float
+
+    def arc_loop(self, n: int = 48) -> list[tuple[float, float]]:
+        return _arc_points(self.cx, self.cy, self.r, self.a_start, self.a_end, n=n)
+
+    def to_json(self) -> dict:
+        return {
+            "kind": "shoulder_arc",
+            "cx": self.cx,
+            "cy": self.cy,
+            "r": self.r,
+            "a_start_deg": float(np.degrees(self.a_start)),
+            "a_end_deg": float(np.degrees(self.a_end)),
+        }
+
+
+@dataclass
+class ShoulderPair:
+    left: ShoulderArc
+    right: ShoulderArc
+
+    @classmethod
+    def from_contours(
+        cls,
+        outer: np.ndarray,
+        base: PartialDonut,
+        stems: StemPair,
+    ) -> ShoulderPair:
+        return cls(
+            left=cls._one_shoulder(outer, base, stems.left, side="left"),
+            right=cls._one_shoulder(outer, base, stems.right, side="right"),
+        )
+
+    @staticmethod
+    def _one_shoulder(
+        outer: np.ndarray,
+        base: PartialDonut,
+        stem: AngledRect,
+        *,
+        side: str,
+    ) -> ShoulderArc:
+        outer_pts = outer.reshape(-1, 2).astype(float)
+        p_stem = np.array(stem.corners[3], dtype=float)
+        if side == "left":
+            p_corner = np.array([base.cx - base.r_outer, base.flat_y])
+            side_mask = outer_pts[:, 0] < base.cx - 50
+        else:
+            p_corner = np.array([base.cx + base.r_outer, base.flat_y])
+            side_mask = outer_pts[:, 0] > base.cx + 50
+        band = outer_pts[
+            side_mask
+            & (outer_pts[:, 1] > base.flat_y - 10)
+            & (outer_pts[:, 1] < p_stem[1] + 8)
+        ]
+        if len(band) < 20:
+            raise RuntimeError(f"too few {side} shoulder samples")
+        cx, cy, r = fit_circle(band)
+        cx, cy, r = ShoulderPair._refine_shoulder(cx, cy, r, band)
+        a_stem = _angle(cx, cy, float(p_stem[0]), float(p_stem[1]))
+        a_corner = _angle(cx, cy, float(p_corner[0]), float(p_corner[1]))
+        a_start, a_end = _pick_arc_sweep(cx, cy, r, a_stem, a_corner, band)
+        return ShoulderArc(cx=cx, cy=cy, r=r, a_start=a_start, a_end=a_end)
+
+    @staticmethod
+    def _refine_shoulder(cx: float, cy: float, r: float, band_pts: np.ndarray) -> tuple[float, float, float]:
+        best_err = float("inf")
+        best = (cx, cy, r)
+        for dcx in np.linspace(-18, 18, 13):
+            for dcy in np.linspace(-18, 18, 13):
+                for dr in np.linspace(-12, 12, 9):
+                    ccx, ccy, rr = cx + dcx, cy + dcy, max(r + dr, 8.0)
+                    rs = np.hypot(band_pts[:, 0] - ccx, band_pts[:, 1] - ccy)
+                    err = float(np.mean(np.abs(rs - rr)))
+                    if err < best_err:
+                        best_err = err
+                        best = (ccx, ccy, rr)
+        return best
+
+    def to_json(self) -> dict:
+        return {"kind": "shoulder_pair", "left": self.left.to_json(), "right": self.right.to_json()}
 
 
 def _rect_corners(p_top: np.ndarray, p_bot: np.ndarray, inner_vec: np.ndarray) -> list[tuple[float, float]]:
@@ -429,6 +558,7 @@ def render_overlay(
     ring: RingDonut | None = None,
     stems: StemPair | None = None,
     base: PartialDonut | None = None,
+    shoulders: ShoulderPair | None = None,
 ) -> np.ndarray:
     vis = rgb.copy()
     for i, cnt in enumerate(loops):
@@ -449,6 +579,10 @@ def render_overlay(
         for rect in (stems.left, stems.right):
             pts = np.array(rect.corners, dtype=np.int32).reshape(-1, 1, 2)
             cv2.polylines(vis, [pts], True, (255, 80, 255), 3, cv2.LINE_AA)
+    if shoulders is not None:
+        for arc in (shoulders.left, shoulders.right):
+            pts = np.array(arc.arc_loop(), dtype=np.int32).reshape(-1, 1, 2)
+            cv2.polylines(vis, [pts], False, (0, 200, 255), 3, cv2.LINE_AA)
     return vis
 
 
@@ -467,7 +601,8 @@ def main() -> None:
     slot = slot_hole(inners)
     base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
-    overlay = render_overlay(rgb, loops, ring, stems, base)
+    shoulders = ShoulderPair.from_contours(loops[0], base, stems)
+    overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
 
     h, w = rgb.shape[:2]
     gap = 16
@@ -483,7 +618,12 @@ def main() -> None:
     json_path = out.with_name("ring-hook-objects.json")
     json_path.write_text(
         json.dumps(
-            {"ring": ring.to_json(), "stems": stems.to_json(), "base": base.to_json()},
+            {
+                "ring": ring.to_json(),
+                "stems": stems.to_json(),
+                "base": base.to_json(),
+                "shoulders": shoulders.to_json(),
+            },
             indent=2,
         )
         + "\n"
@@ -500,6 +640,8 @@ def main() -> None:
         f"  partial_donut: centre=({base.cx:.0f},{base.flat_y:.0f}) "
         f"r_outer={base.r_outer:.0f} flat_y={base.flat_y:.0f}"
     )
+    for side, sh in ("left", shoulders.left), ("right", shoulders.right):
+        print(f"  shoulder_{side}: centre=({sh.cx:.0f},{sh.cy:.0f}) r={sh.r:.0f}")
     print(f"  wrote {json_path}")
 
     if args.open:
