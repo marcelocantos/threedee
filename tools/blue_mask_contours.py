@@ -25,6 +25,8 @@ OUT = Path(__file__).resolve().parent.parent / "export" / "ring-hook-edges.png"
 MIN_AREA = 5000
 # Stop stem bottoms slightly above the D cutout flat (image y down).
 D_FLAT_BACKOFF = 4.0
+# Slight shrink from pure tangency solve — left shoulder reads a touch large in photo.
+SHOULDER_RADIUS_SCALE = 0.94
 
 
 def mask_from_photo(rgb: np.ndarray) -> np.ndarray:
@@ -143,7 +145,16 @@ def _angle(cx: float, cy: float, x: float, y: float) -> float:
     return float(atan2(y - cy, x - cx))
 
 
+def _short_arc_sweep(a0: float, a1: float) -> tuple[float, float]:
+    """Return (a_start, a_end) spanning the minor arc between two angles."""
+    sweep = (a1 - a0) % (2 * pi)
+    if sweep > pi:
+        sweep -= 2 * pi
+    return a0, a0 + sweep
+
+
 def _arc_points(cx: float, cy: float, r: float, a0: float, a1: float, n: int = 48) -> list[tuple[float, float]]:
+    a0, a1 = _short_arc_sweep(a0, a1)
     if abs(a1 - a0) < 1e-6:
         a1 = a0 + 1e-3
     return [(cx + r * cos(a), cy + r * sin(a)) for a in np.linspace(a0, a1, n)]
@@ -239,11 +250,6 @@ def _stem_outer_edge(stem: AngledRect) -> tuple[np.ndarray, np.ndarray]:
     return d, outer_bot
 
 
-def _outward_normal(d: np.ndarray, *, side: str) -> np.ndarray:
-    n = np.array([-d[1], d[0]]) if side == "left" else np.array([d[1], -d[0]])
-    return n / np.linalg.norm(n)
-
-
 def _line_distance(c: np.ndarray, d: np.ndarray, p: np.ndarray) -> float:
     v = c - p
     return float(abs(v[0] * d[1] - v[1] * d[0]))
@@ -294,10 +300,8 @@ class ShoulderArc:
         flat = np.array(self.flat_tangent)
         if abs(self.cy + self.r - flat_y) > tol:
             raise RuntimeError(f"flat tangency off by {abs(self.cy + self.r - flat_y):.4f}px")
-        if abs(_line_distance(centre, stem_d, stem) - self.r) > tol:
+        if abs(_line_distance(centre, stem_d, stem) - self.r) > max(tol, self.r * 0.08):
             raise RuntimeError("stem-line tangency failed")
-        if abs(np.linalg.norm(centre - stem) - self.r) > tol:
-            raise RuntimeError("stem tangent point not on circle")
         if abs(np.linalg.norm(centre - flat) - self.r) > tol:
             raise RuntimeError("flat tangent point not on circle")
         if flat[1] > flat_y + tol or stem[1] > flat_y + tol:
@@ -335,15 +339,16 @@ class ShoulderPair:
         flat_y = base.flat_y
         d, outer_bot = _stem_outer_edge(stem)
         corner_x = base.cx - base.r_outer if side == "left" else base.cx + base.r_outer
-        r = _solve_shoulder_radius(corner_x, flat_y, outer_bot, d)
+        r = _solve_shoulder_radius(corner_x, flat_y, outer_bot, d) * SHOULDER_RADIUS_SCALE
         cx = float(corner_x)
         cy = float(flat_y - r)
         centre = np.array([cx, cy])
-        stem_t = _foot_on_line(outer_bot, d, centre)
+        foot = _foot_on_line(outer_bot, d, centre)
         flat_tangent = (cx, flat_y)
         a_corner = _angle(cx, cy, cx, flat_y)
-        a_stem = _angle(cx, cy, float(stem_t[0]), float(stem_t[1]))
-        a_start, a_end = (a_corner, a_stem) if side == "left" else (a_stem, a_corner)
+        a_stem = _angle(cx, cy, float(foot[0]), float(foot[1]))
+        a_start, a_end = _short_arc_sweep(a_corner, a_stem)
+        stem_t = (cx + r * cos(a_end), cy + r * sin(a_end))
         return ShoulderArc(
             cx=cx,
             cy=cy,
