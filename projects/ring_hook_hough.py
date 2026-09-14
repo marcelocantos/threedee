@@ -14,10 +14,10 @@ import cv2
 import numpy as np
 from PIL import Image
 
-# Profile void ratios (ring_hook_profile.py), applied to detected outer circles.
+# Profile void ratio for ring hole (photo-calibrated); base slot is fit from the crop.
 RING_HOLE_RATIO = 4.0 / 7.0
-BASE_SLOT_RATIO = 5.0 / 9.0
-BASE_CUT_Y_RATIO = 35.0 / 42.3
+BASE_SLOT_RATIO = 5.0 / 9.0  # fallback only
+BASE_CUT_Y_RATIO = 35.0 / 42.3  # fallback flat-top height
 
 REF_PHOTO = Path(
     "/Users/marcelo/.cursor/projects/Users-marcelo-work-github-com-marcelocantos-threedee/assets/image-1789347656020-0.jpg"
@@ -277,22 +277,98 @@ class Primitives:
     void_circles: list[Circle]  # ring hole, base slot arc
 
 
-def void_geometry(outer: list[Circle], crop_blue: np.ndarray) -> tuple[list[Circle], Segment]:
-    """Inner concentric circles and the flat top of the base D-cutout."""
-    base, _ear_l, _ear_r, ring = outer
+def _hough_inner_base_arc(blur: np.ndarray, base: Circle) -> Circle | None:
+    """Detect the inner base-slot arc as a circle concentric with the outer base."""
+    raw = cv2.HoughCircles(
+        blur,
+        cv2.HOUGH_GRADIENT,
+        dp=1.2,
+        minDist=int(base.r * 0.4),
+        param1=70,
+        param2=22,
+        minRadius=int(base.r * 0.55),
+        maxRadius=int(base.r * 0.88),
+    )
+    if raw is None:
+        return None
+    cands = [
+        c
+        for c in raw[0]
+        if abs(c[0] - base.cx) < 40 and abs(c[1] - base.cy) < 80 and c[2] < base.r * 0.9
+    ]
+    if not cands:
+        return None
+    x, y, r = max(cands, key=lambda c: c[2])
+    return Circle(float(x), float(y), float(r))
+
+
+def _slot_flat_y(edges: np.ndarray, base: Circle, y_fallback: float) -> float:
+    """Horizontal edge at the top of the base D-cutout."""
+    raw = cv2.HoughLinesP(
+        edges, 1, np.pi / 180, 30, minLineLength=int(base.r * 0.35), maxLineGap=8
+    )
+    if raw is None:
+        return y_fallback
+    horiz: list[tuple[float, float]] = []
+    for line in raw:
+        x1, y1, x2, y2 = line[0]
+        ang = abs(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
+        if ang > 5 and ang < 175:
+            continue
+        my = (y1 + y2) / 2
+        mx = (x1 + x2) / 2
+        if base.cy - base.r * 0.45 < my < base.cy - base.r * 0.05:
+            if abs(mx - base.cx) < base.r * 0.35:
+                horiz.append((my, float(np.hypot(x2 - x1, y2 - y1))))
+    if not horiz:
+        return y_fallback
+    horiz.sort(key=lambda item: (-item[1], item[0]))
+    return horiz[0][0]
+
+
+def _refine_slot_radius(edges: np.ndarray, base: Circle, y_flat: float, r_seed: float) -> float:
+    """Nudge inner arc radius so the circle sits on Canny edge pixels."""
+    ys, xs = np.where(edges > 0)
+    band = (
+        (ys > y_flat + 4)
+        & (ys < base.cy + r_seed * 0.92)
+        & (np.abs(xs - base.cx) < r_seed * 1.05)
+    )
+    if int(band.sum()) < 60:
+        return r_seed
+    dist = np.hypot(xs[band] - base.cx, ys[band] - base.cy)
+    # Edges sit just outside the true arc — use upper-median distance.
+    return float(np.percentile(dist, 62))
+
+
+def detect_base_slot(base: Circle, crop_blue: np.ndarray, blur: np.ndarray, edges: np.ndarray) -> tuple[Circle, Segment]:
+    """Fit inner base slot circle and flat chord from photo edges."""
     ys = np.where(crop_blue > 0)[0]
     top, bot = int(ys.min()), int(ys.max())
+    y_fallback = top + BASE_CUT_Y_RATIO * (bot - top)
 
-    ring_hole = Circle(ring.cx, ring.cy, ring.r * RING_HOLE_RATIO)
-    base_slot = Circle(base.cx, base.cy, base.r * BASE_SLOT_RATIO)
+    hough = _hough_inner_base_arc(blur, base)
+    r_seed = hough.r if hough is not None else base.r * BASE_SLOT_RATIO
+    y_flat = _slot_flat_y(edges, base, y_fallback)
+    r = _refine_slot_radius(edges, base, y_flat, r_seed)
+    slot = Circle(base.cx, base.cy, r)
 
-    y_flat = top + BASE_CUT_Y_RATIO * (bot - top)
-    dy = y_flat - base.cy
-    if abs(dy) >= base_slot.r:
-        half = base_slot.r * 0.85
+    dy = y_flat - slot.cy
+    if abs(dy) < slot.r:
+        half = sqrt(slot.r * slot.r - dy * dy)
     else:
-        half = sqrt(base_slot.r * base_slot.r - dy * dy)
-    cut_top = Segment(base.cx - half, y_flat, base.cx + half, y_flat)
+        half = slot.r * 0.85
+    cut_top = Segment(slot.cx - half, y_flat, slot.cx + half, y_flat)
+    return slot, cut_top
+
+
+def void_geometry(
+    outer: list[Circle], crop_blue: np.ndarray, blur: np.ndarray, edges: np.ndarray
+) -> tuple[list[Circle], Segment]:
+    """Inner concentric circles and the flat top of the base D-cutout."""
+    _base, _ear_l, _ear_r, ring = outer
+    ring_hole = Circle(ring.cx, ring.cy, ring.r * RING_HOLE_RATIO)
+    base_slot, cut_top = detect_base_slot(_base, crop_blue, blur, edges)
     return [ring_hole, base_slot], cut_top
 
 
@@ -341,7 +417,7 @@ def detect(crop: np.ndarray, crop_blue: np.ndarray) -> Primitives:
     kept_lines = filter_lines(lines, base, h)
     outer_circles = pick_circles(circles, crop_blue, h)
     kept_lines = extend_inner_triangle(kept_lines, outer_circles[3])
-    void_circles, cut_top = void_geometry(outer_circles, crop_blue)
+    void_circles, cut_top = void_geometry(outer_circles, crop_blue, blur, edges)
     kept_lines = kept_lines + [cut_top]
     return Primitives(kept_lines, outer_circles, void_circles)
 
