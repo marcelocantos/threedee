@@ -11,7 +11,7 @@ import json
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
-from math import atan2, cos, sin, sqrt
+from math import atan2, cos, pi, sin, sqrt
 from pathlib import Path
 
 import cv2
@@ -137,6 +137,64 @@ def slot_hole(inners: list[np.ndarray]) -> np.ndarray:
 
 def d_flat_y(slot: np.ndarray) -> float:
     return float(slot.reshape(-1, 2)[:, 1].min())
+
+
+def _semicircle_arc(cx: float, cy: float, r: float, n: int = 64) -> list[tuple[float, float]]:
+    """Bottom semicircle: left chord end → bottom → right chord end (image y down)."""
+    return [
+        (cx + r * cos(a), cy - r * sin(a))
+        for a in (pi + (2 * pi - pi) * i / n for i in range(n + 1))
+    ]
+
+
+@dataclass
+class PartialDonut:
+    """Bottom half-ring: flat top chord + outer semicircle (image px, y down)."""
+
+    cx: float
+    flat_y: float
+    r_outer: float
+
+    @property
+    def cy(self) -> float:
+        return self.flat_y
+
+    @classmethod
+    def from_contours(cls, outer: np.ndarray, ring: RingDonut) -> PartialDonut:
+        cx = ring.cx
+        outer_pts = outer.reshape(-1, 2).astype(float)
+        y_lo = ring.cy + ring.r_outer * 0.8
+        y_hi = float(np.percentile(outer_pts[:, 1], 97))
+        best_y = y_lo
+        best_w = 0.0
+        for y in np.linspace(y_lo, y_hi, 100):
+            x_left = _edge_x_at_y(outer, float(y), cx, side="left")
+            x_right = _edge_x_at_y(outer, float(y), cx, side="right")
+            if x_left is None or x_right is None:
+                continue
+            width = x_right - x_left
+            if width > best_w:
+                best_w = width
+                best_y = float(y)
+        x_left = _edge_x_at_y(outer, best_y, cx, side="left")
+        x_right = _edge_x_at_y(outer, best_y, cx, side="right")
+        if x_left is None or x_right is None:
+            raise RuntimeError("could not locate base flat chord")
+        r_outer = float(((cx - x_left) + (x_right - cx)) / 2)
+        return cls(cx=cx, flat_y=best_y, r_outer=r_outer)
+
+    def outer_loop(self) -> list[tuple[float, float]]:
+        left = (self.cx - self.r_outer, self.flat_y)
+        right = (self.cx + self.r_outer, self.flat_y)
+        return [left, *_semicircle_arc(self.cx, self.flat_y, self.r_outer)[1:-1], right]
+
+    def to_json(self) -> dict:
+        return {
+            "kind": "partial_donut",
+            "cx": self.cx,
+            "flat_y": self.flat_y,
+            "r_outer": self.r_outer,
+        }
 
 
 def _rect_corners(p_top: np.ndarray, p_bot: np.ndarray, inner_vec: np.ndarray) -> list[tuple[float, float]]:
@@ -347,6 +405,7 @@ def render_overlay(
     loops: list[np.ndarray],
     ring: RingDonut | None = None,
     stems: StemPair | None = None,
+    base: PartialDonut | None = None,
 ) -> np.ndarray:
     vis = rgb.copy()
     for i, cnt in enumerate(loops):
@@ -357,6 +416,12 @@ def render_overlay(
         cv2.circle(vis, c, int(round(ring.r_outer)), (60, 255, 120), 3, cv2.LINE_AA)
         cv2.circle(vis, c, int(round(ring.r_inner)), (60, 255, 120), 3, cv2.LINE_AA)
         cv2.circle(vis, c, 4, (40, 200, 80), -1, cv2.LINE_AA)
+    if base is not None:
+        loop = np.array(base.outer_loop(), dtype=np.int32).reshape(-1, 1, 2)
+        cv2.polylines(vis, [loop], False, (80, 200, 255), 3, cv2.LINE_AA)
+        left = (int(base.cx - base.r_outer), int(base.flat_y))
+        right = (int(base.cx + base.r_outer), int(base.flat_y))
+        cv2.line(vis, left, right, (80, 200, 255), 3, cv2.LINE_AA)
     if stems is not None:
         for rect in (stems.left, stems.right):
             pts = np.array(rect.corners, dtype=np.int32).reshape(-1, 1, 2)
@@ -377,8 +442,9 @@ def main() -> None:
     inners = loops[1:]
     ring = RingDonut.from_loops(loops[0], inners)
     slot = slot_hole(inners)
+    base = PartialDonut.from_contours(loops[0], ring)
     stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
-    overlay = render_overlay(rgb, loops, ring, stems)
+    overlay = render_overlay(rgb, loops, ring, stems, base)
 
     h, w = rgb.shape[:2]
     gap = 16
@@ -392,7 +458,13 @@ def main() -> None:
     Image.fromarray(panel).save(out)
 
     json_path = out.with_name("ring-hook-objects.json")
-    json_path.write_text(json.dumps({"ring": ring.to_json(), "stems": stems.to_json()}, indent=2) + "\n")
+    json_path.write_text(
+        json.dumps(
+            {"ring": ring.to_json(), "stems": stems.to_json(), "base": base.to_json()},
+            indent=2,
+        )
+        + "\n"
+    )
 
     print(f"wrote {out}  ({len(loops)} contour loops)")
     for i, cnt in enumerate(loops):
@@ -401,6 +473,10 @@ def main() -> None:
     print(f"  ring_donut: centre=({ring.cx:.0f},{ring.cy:.0f}) r_outer={ring.r_outer:.0f} r_inner={ring.r_inner:.0f}")
     for side, r in ("left", stems.left), ("right", stems.right):
         print(f"  stem_{side}: {r.length:.0f}x{r.width:.0f}px  angle={r.angle_deg:.1f}°")
+    print(
+        f"  partial_donut: centre=({base.cx:.0f},{base.flat_y:.0f}) "
+        f"r_outer={base.r_outer:.0f} flat_y={base.flat_y:.0f}"
+    )
     print(f"  wrote {json_path}")
 
     if args.open:
