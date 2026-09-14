@@ -239,6 +239,71 @@ class PartialDonut:
         }
 
 
+@dataclass
+class DCutout:
+    """D-shaped base slot: flat top + bottom semicircle concentric with the outer base."""
+
+    cx: float
+    cy: float
+    r: float
+    flat_y: float
+    x_left: float
+    x_right: float
+
+    @classmethod
+    def from_contours(cls, slot: np.ndarray, base: PartialDonut) -> DCutout:
+        pts = slot.reshape(-1, 2).astype(float)
+        cx, cy = base.cx, base.flat_y
+        y_top = float(pts[:, 1].min())
+        top = pts[pts[:, 1] < y_top + 12]
+        c_top, d_top = fit_line(top)
+        if abs(d_top[0]) >= abs(d_top[1]):
+            flat_y = float(c_top[1])
+        else:
+            flat_y = float(np.median(top[:, 1]))
+        arc_pts = pts[pts[:, 1] > flat_y + 8]
+        if len(arc_pts) < 20:
+            raise RuntimeError("too few D-slot arc samples")
+        r = float(np.median(np.hypot(arc_pts[:, 0] - cx, arc_pts[:, 1] - cy)))
+        dy = flat_y - cy
+        if dy >= r:
+            raise RuntimeError("D cutout flat sits below circle centre")
+        dx = sqrt(r * r - dy * dy)
+        return cls(
+            cx=cx,
+            cy=cy,
+            r=r,
+            flat_y=flat_y,
+            x_left=float(cx - dx),
+            x_right=float(cx + dx),
+        )
+
+    def _junction_angles(self) -> tuple[float, float]:
+        a_left = float(atan2(-(self.flat_y - self.cy), self.x_left - self.cx))
+        a_right = float(atan2(-(self.flat_y - self.cy), self.x_right - self.cx))
+        return a_left, a_right
+
+    def inner_loop(self, n: int = 48) -> list[tuple[float, float]]:
+        """Closed loop: flat top chord + lower circular arc (image y down)."""
+        a_left, a_right = self._junction_angles()
+        a_start, a_end = _short_arc_sweep(a_left, a_right)
+        left = (self.x_left, self.flat_y)
+        right = (self.x_right, self.flat_y)
+        arc = _arc_points(self.cx, self.cy, self.r, a_start, a_end, n=n)
+        return [left, right, *reversed(arc[1:-1])]
+
+    def to_json(self) -> dict:
+        return {
+            "kind": "d_cutout",
+            "cx": self.cx,
+            "cy": self.cy,
+            "r": self.r,
+            "flat_y": self.flat_y,
+            "x_left": self.x_left,
+            "x_right": self.x_right,
+        }
+
+
 def _stem_outer_edge(stem: AngledRect) -> tuple[np.ndarray, np.ndarray]:
     """Unit direction (top→bottom) and outer-bottom corner on the stem rectangle."""
     outer_top = np.array(stem.corners[0], dtype=float)
@@ -661,6 +726,7 @@ def render_overlay(
     stems: StemPair | None = None,
     base: PartialDonut | None = None,
     shoulders: ShoulderPair | None = None,
+    d_cutout: DCutout | None = None,
 ) -> np.ndarray:
     vis = rgb.copy()
     for i, cnt in enumerate(loops):
@@ -685,6 +751,9 @@ def render_overlay(
         for arc in (shoulders.left, shoulders.right):
             pts = np.array(arc.arc_loop(), dtype=np.int32).reshape(-1, 1, 2)
             cv2.polylines(vis, [pts], False, (0, 200, 255), 3, cv2.LINE_AA)
+    if d_cutout is not None:
+        loop = np.array(d_cutout.inner_loop(), dtype=np.int32).reshape(-1, 1, 2)
+        cv2.polylines(vis, [loop], True, (255, 220, 60), 3, cv2.LINE_AA)
     return vis
 
 
@@ -702,9 +771,10 @@ def main() -> None:
     ring = RingDonut.from_loops(loops[0], inners)
     slot = slot_hole(inners)
     base = PartialDonut.from_contours(loops[0], ring)
-    stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_flat_y(slot))
+    d_cutout = DCutout.from_contours(slot, base)
+    stems = StemPair.from_contours(loops[0], triangle_hole(inners), ring, d_cutout.flat_y)
     shoulders = ShoulderPair.from_stems(base, stems, loops[0].reshape(-1, 2).astype(float))
-    overlay = render_overlay(rgb, loops, ring, stems, base, shoulders)
+    overlay = render_overlay(rgb, loops, ring, stems, base, shoulders, d_cutout)
 
     h, w = rgb.shape[:2]
     gap = 16
@@ -724,6 +794,7 @@ def main() -> None:
                 "ring": ring.to_json(),
                 "stems": stems.to_json(),
                 "base": base.to_json(),
+                "d_cutout": d_cutout.to_json(),
                 "shoulders": shoulders.to_json(),
             },
             indent=2,
@@ -744,6 +815,10 @@ def main() -> None:
     )
     for side, sh in ("left", shoulders.left), ("right", shoulders.right):
         print(f"  shoulder_{side}: centre=({sh.cx:.0f},{sh.cy:.0f}) r={sh.r:.0f}")
+    print(
+        f"  d_cutout: centre=({d_cutout.cx:.0f},{d_cutout.cy:.0f}) r={d_cutout.r:.0f} "
+        f"flat_y={d_cutout.flat_y:.0f} chord=[{d_cutout.x_left:.0f},{d_cutout.x_right:.0f}]"
+    )
     print(f"  wrote {json_path}")
 
     if args.open:
