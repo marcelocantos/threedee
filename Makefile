@@ -5,7 +5,7 @@ all: $(STAMPS) projects/trolley-key/export/.stamp
 
 projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../ring_hook.py
+	cd $(@D) && python ../ring_hook.py --plate --no-preview
 	@touch $@
 
 export/.%.stamp: projects/%.py | export

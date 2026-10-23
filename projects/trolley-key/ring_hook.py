@@ -7,9 +7,16 @@
 thin plate for export. Dimensions measured from a photo against a ruler.
 """
 
+import argparse
 from math import acos, atan2, cos, hypot, sin
+import struct
 
 from build123d import *
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--plate", action="store_true", help="Export ten keys on an X1 Carbon plate")
+parser.add_argument("--no-preview", action="store_true", help="Export without opening the CAD viewer")
+args = parser.parse_args()
 
 # Parameters (mm). y = 0 is the flat top of the semicircular foot.
 ring_r = 6.75       # Ring outer radius
@@ -83,8 +90,46 @@ result = fillet(outer_edges, outer_fillet)
 export_stl(result, "ring-hook.stl")
 export_step(result, "ring-hook.step")
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+if args.plate:
+    columns, rows = 5, 2
+    gap = 5  # Minimum gap between neighbouring bounding boxes, in mm.
+    bed_size = 256  # X1 Carbon printable width and depth, in mm.
+    bounds = result.bounding_box()
+    pitch_x, pitch_y = bounds.size.X + gap, bounds.size.Y + gap
+    plate_width = columns * pitch_x - gap
+    plate_depth = rows * pitch_y - gap
+    if max(plate_width, plate_depth) > bed_size:
+        raise ValueError("Ten-key layout exceeds the X1 Carbon bed")
+    start_x = (bed_size - plate_width) / 2 - bounds.min.X
+    start_y = (bed_size - plate_depth) / 2 - bounds.min.Y
+    offsets = [
+        (start_x + col * pitch_x, start_y + row * pitch_y, -bounds.min.Z)
+        for row in range(rows)
+        for col in range(columns)
+    ]
+    result = Compound(children=[Pos(*offset) * result for offset in offsets])
+    export_step(result, "trolley-key-10.step")
+
+    # Translate the original triangles rather than remeshing the copied CAD
+    # solids, so every printable copy preserves the accepted single-key mesh.
+    with open("ring-hook.stl", "rb") as source:
+        header = source.read(80)
+        triangle_count = struct.unpack("<I", source.read(4))[0]
+        triangles = source.read()
+    with open("trolley-key-10.stl", "wb") as output:
+        output.write(header)
+        output.write(struct.pack("<I", triangle_count * len(offsets)))
+        for offset in offsets:
+            for triangle in struct.iter_unpack("<12fH", triangles):
+                moved = list(triangle)
+                for vertex in range(3):
+                    for axis in range(3):
+                        moved[3 + vertex * 3 + axis] += offset[axis]
+                output.write(struct.pack("<12fH", *moved))
+
+if not args.no_preview:
+    try:
+        from ocp_vscode import show
+        show(result)
+    except ImportError:
+        pass
