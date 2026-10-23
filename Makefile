@@ -1,7 +1,12 @@
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 
-all: $(STAMPS)
+all: $(STAMPS) projects/trolley-key/export/.stamp
+
+projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
+	mkdir -p $(@D)
+	cd $(@D) && python ../ring_hook.py
+	@touch $@
 
 export/.%.stamp: projects/%.py | export
 	cd export && python ../$<
@@ -11,7 +16,7 @@ export:
 	mkdir -p $@
 
 clean:
-	rm -rf export
+	rm -rf export projects/trolley-key/export
 
 .PHONY: all clean
 
