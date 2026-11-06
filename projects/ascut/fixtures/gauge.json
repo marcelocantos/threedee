@@ -1,0 +1,22 @@
+{
+  "id": "thickness-gauge",
+  "citation": "https://www.youtube.com/watch?v=uzqiwq_xQHU",
+  "features": [
+    {
+      "id": "blade.thickness",
+      "requires_reading": true,
+      "nominal": {"value": "3/2", "unit": "mm"},
+      "reading": {
+        "instrument": "micrometer",
+        "datum": "build-plate face to the opposite face",
+        "value": "147/100",
+        "uncertainty": "1/50",
+        "unit": "mm"
+      }
+    }
+  ],
+  "design": {
+    "length": {"value": "75", "unit": "mm"},
+    "width": {"value": "15", "unit": "mm"}
+  }
+}

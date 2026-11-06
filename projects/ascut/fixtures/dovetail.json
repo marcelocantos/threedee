@@ -1,0 +1,41 @@
+{
+  "id": "dovetail-box",
+  "citation": "https://www.youtube.com/watch?v=uQQH8XzlgVU",
+  "features": [
+    {
+      "id": "tail.flank_angle",
+      "requires_reading": true,
+      "nominal": {"value": "15", "unit": "deg"},
+      "reading": {
+        "instrument": "vise tram against the cut face",
+        "datum": "already-cut dovetail face, angle from the YZ plane",
+        "value": "57/4",
+        "uncertainty": "1/100",
+        "unit": "deg"
+      }
+    },
+    {
+      "id": "tail.width_recovery",
+      "requires_reading": true,
+      "nominal": {"value": "0", "unit": "in"},
+      "reading": {
+        "instrument": "calipers",
+        "datum": "common datum; one side overcut 0.020 in, widened 0.040 in symmetrically",
+        "value": "1/25",
+        "uncertainty": "1/1000",
+        "unit": "in"
+      }
+    }
+  ],
+  "design": {
+    "neck": {"value": "1/2", "unit": "in"},
+    "depth": {"value": "1/4", "unit": "in"},
+    "length": {"value": "1", "unit": "in"},
+    "shoulder": {"value": "1/8", "unit": "in"},
+    "base": {"value": "1/8", "unit": "in"},
+    "wall": {"value": "1/8", "unit": "in"},
+    "floor": {"value": "1/8", "unit": "in"},
+    "flank_clearance": {"value": "1/500", "unit": "in"},
+    "tip_clearance": {"value": "1/200", "unit": "in"}
+  }
+}

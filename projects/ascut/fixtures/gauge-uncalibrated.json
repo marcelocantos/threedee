@@ -1,0 +1,16 @@
+{
+  "id": "thickness-gauge-uncalibrated",
+  "citation": "https://www.youtube.com/watch?v=uzqiwq_xQHU",
+  "features": [
+    {
+      "id": "blade.thickness",
+      "requires_reading": true,
+      "nominal": {"value": "3/2", "unit": "mm"},
+      "reading": null
+    }
+  ],
+  "design": {
+    "length": {"value": "75", "unit": "mm"},
+    "width": {"value": "15", "unit": "mm"}
+  }
+}
