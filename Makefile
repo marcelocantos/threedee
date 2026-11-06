@@ -23,7 +23,12 @@ export:
 clean:
 	rm -rf export projects/trolley-key/export projects/scale-rails/export
 
-.PHONY: all clean
+.PHONY: all clean ascut-oracle
+
+# Reimport the as-cut dovetail and gauge and compare them to the frozen referent.
+ascut-oracle:
+	python -m pytest projects/ascut/test_ascut_oracle.py -q -p no:cacheprovider -p no:asyncio -W ignore
+
 
 # Standing invariants for bullseye_convergence.
 .PHONY: bullseye
