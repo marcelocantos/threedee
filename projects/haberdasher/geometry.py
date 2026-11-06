@@ -404,6 +404,89 @@ def _expr(e) -> str:
     return str(sp.simplify(e))
 
 
+def _nonnegative(e: sp.Expr) -> bool:
+    real = complex(sp.N(e)).real
+    return real >= -1e-10
+
+
+def _fmt(e: sp.Expr) -> str:
+    """Print an exact real expression with non-negative radicands.
+
+    Sympy orders ``4*sqrt(3) - 3`` as ``-3 + 4*sqrt(3)``, so ``str`` on a
+    square root shows a negative radicand. The value is unchanged; only
+    the term order inside each radical is rewritten.
+    """
+    e = sp.simplify(e)
+    if e.is_Integer:
+        return str(int(e))
+    if e.is_Rational:
+        return f"{e.p}/{e.q}"
+    if e.func is sp.Pow and e.exp == sp.Rational(1, 2):
+        return f"sqrt({_fmt(e.base)})"
+    if e.func is sp.Add:
+        pos = [t for t in e.args if _nonnegative(t)]
+        neg = [t for t in e.args if not _nonnegative(t)]
+        pos.sort(key=lambda t: -abs(complex(sp.N(t)).real))
+        neg.sort(key=lambda t: -abs(complex(sp.N(t)).real))
+        parts: list[str] = []
+        for term in pos:
+            parts.append(_fmt(term) if not parts else f" + {_fmt(term)}")
+        for term in neg:
+            shown = _fmt(sp.simplify(-term))
+            parts.append(shown if not parts else f" - {shown}")
+            if parts and parts[-1] == shown and len(parts) == 1:
+                parts[-1] = f"-{shown}"
+        return "".join(parts)
+    if e.func is sp.Mul:
+        sign = 1
+        factors: list[sp.Expr] = []
+        for factor in e.args:
+            if factor.is_Number and factor < 0:
+                sign *= -1
+                factor = sp.simplify(-factor)
+            if factor != 1:
+                factors.append(factor)
+        rationals = [factor for factor in factors if factor.is_Rational]
+        others = [factor for factor in factors if not factor.is_Rational]
+        bits: list[str] = []
+        if rationals:
+            coeff = sp.Mul(*rationals)
+            if coeff != 1:
+                bits.append(_fmt(coeff))
+        for factor in others:
+            bits.append(f"({_fmt(factor)})" if factor.func is sp.Add else _fmt(factor))
+        body = "*".join(bits) if bits else "1"
+        return f"-{body}" if sign < 0 else body
+    return str(e)
+
+
+def _share_radical(expr: sp.Expr) -> sp.Expr:
+    """Write sqrt(12*sqrt(3)-9) as sqrt(3)*sqrt(4*sqrt(3)-3) and collect."""
+    shared = sp.sqrt(4 * sp.sqrt(3) - 3)
+    wider = sp.sqrt(12 * sp.sqrt(3) - 9)
+    rewritten = expr.xreplace({wider: sp.sqrt(3) * shared})
+    return sp.collect(sp.expand(rewritten), shared)
+
+
+def canonical_area(expr: sp.Expr) -> str:
+    """Closed form whose ``sympify`` equals ``expr`` and whose radicands lead non-negative."""
+    e = sp.simplify(expr)
+    num, den = sp.fraction(sp.together(_share_radical(e)))
+    num, den = sp.simplify(num), sp.simplify(den)
+    body = _fmt(num)
+    if den == 1:
+        text = body
+    else:
+        if num.func is sp.Add or (isinstance(body, str) and body.startswith("-")):
+            body = f"({body})"
+        text = f"{body}/{_fmt(den)}"
+    if sp.simplify(sp.sympify(text) - e) != 0:
+        raise RuntimeError(f"canonical area does not round-trip: {text}")
+    if "sqrt(-" in text.replace(" ", ""):
+        raise RuntimeError(f"negative radicand in canonical area: {text}")
+    return text
+
+
 def _num(e) -> float:
     return float(e)
 
@@ -426,7 +509,7 @@ def cabinet_document(proof: dict | None = None) -> dict:
             "vertices": list(model["pieces"][name]),
             "triangle": [_point_record(p)["xy"] for p in tri],
             "square": [_point_record(p)["xy"] for p in sq],
-            "area": {"exact": _expr(proof["areas"][name]), "float": _num(proof["areas"][name])},
+            "area": {"exact": canonical_area(proof["areas"][name]), "float": _num(proof["areas"][name])},
         })
     return {
         "schema": "dissection-cabinet/1",
