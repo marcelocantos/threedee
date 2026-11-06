@@ -1,0 +1,67 @@
+{
+  "source": "https://www.youtube.com/watch?v=uQQH8XzlgVU",
+  "gauge_source": "https://www.youtube.com/watch?v=uzqiwq_xQHU",
+  "definition": "alpha is the signed angle between the flank and the YZ plane; positive alpha widens the tip. The flank gap is the normal clearance. The datum gap on Y=0 is zero.",
+  "video": {
+    "angle_nominal_deg": "15",
+    "angle_measured_deg": "57/4",
+    "angle_uncertainty_deg": "1/100",
+    "overcut_one_side_in": "1/50",
+    "width_recovery_in": "1/25",
+    "width_recovery_uncertainty_in": "1/1000"
+  },
+  "model_in": {
+    "neck": "1/2",
+    "depth": "1/4",
+    "length": "1",
+    "shoulder": "1/8",
+    "base": "1/8",
+    "wall": "1/8",
+    "floor": "1/8",
+    "flank_clearance": "1/500",
+    "tip_clearance": "1/200"
+  },
+  "gauge": {
+    "length_mm": "75",
+    "width_mm": "15",
+    "nominal_mm": "3/2",
+    "calibrated_mm": "147/100",
+    "uncertainty_mm": "1/50",
+    "note": "75 by 15 mm and the 1.5 mm step are the printed-gauge video. 1.47 mm is a synthetic calibration, not a reading from that video."
+  },
+  "derived": {
+    "male_angle_deg": {
+      "unit": "deg",
+      "exact": "57/4"
+    },
+    "female_angle_deg": {
+      "unit": "deg",
+      "exact": "57/4"
+    },
+    "flank_gap_mm": {
+      "unit": "mm",
+      "exact": "127/2500"
+    },
+    "tip_gap_mm": {
+      "unit": "mm",
+      "exact": "127/1000"
+    },
+    "datum_gap_mm": {
+      "unit": "mm",
+      "exact": "0"
+    },
+    "male_neck_mm": {
+      "unit": "mm",
+      "exact": "3429/250"
+    },
+    "male_tip_mm": {
+      "unit": "mm",
+      "decimal": "16.94138911023178447719565205080371131174"
+    },
+    "female_mouth_mm": {
+      "unit": "mm",
+      "decimal": "13.82082538163247350692120680445221201772"
+    },
+    "contact": "flanks parallel at the measured angle, normal gap equal to the clearance, tip clear of the floor, shoulder coincident with the socket mouth"
+  }
+}
