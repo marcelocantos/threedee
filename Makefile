@@ -1,7 +1,7 @@
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 
-all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.stamp
+all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.stamp projects/puzzle-tray/export/.stamp
 
 projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
 	mkdir -p $(@D)
@@ -13,6 +13,15 @@ projects/scale-rails/export/.stamp: projects/scale-rails/scale_rails.py
 	cd $(@D) && python ../scale_rails.py --no-preview
 	@touch $@
 
+projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py
+	mkdir -p $(@D)
+	cd $(@D) && python ../puzzle_tray.py --no-preview
+	@touch $@
+
+# Optional (needs Bambu Studio installed): tray + grip modifier with fuzzy skin, as a Studio project.
+projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py
+	cd $(@D) && python ../fuzzy_3mf.py
+
 export/.%.stamp: projects/%.py | export
 	cd export && python ../$<
 	@touch $@
@@ -21,7 +30,7 @@ export:
 	mkdir -p $@
 
 clean:
-	rm -rf export projects/trolley-key/export projects/scale-rails/export
+	rm -rf export projects/trolley-key/export projects/scale-rails/export projects/puzzle-tray/export
 
 .PHONY: all clean ascut-oracle
 

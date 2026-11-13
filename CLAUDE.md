@@ -8,6 +8,7 @@ Parametric 3D parts for 3D printing, built with
 - `projects/` — Individual part designs (one `.py` per part)
 - `projects/trolley-key/` — Shopping trolley coin substitute (ring hook), with source, README and local exports
 - `projects/scale-rails/` — One-piece under-shelf cradle (two rails joined by a back wall) for the Soehnle kitchen scale, with source, README and local exports
+- `projects/puzzle-tray/` — Tray for a 3 × 3 wooden picture-cube puzzle (replaces its cardboard box), with source, README and local exports
 - `export/` — Build output (STL + STEP), gitignored
 - `bullseye.yaml` — Convergence targets (edit via the bullseye tools, not by hand)
 
