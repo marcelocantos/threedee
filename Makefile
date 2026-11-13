@@ -1,7 +1,7 @@
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 
-all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.stamp projects/puzzle-tray/export/.stamp
+all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.stamp projects/puzzle-tray/export/.stamp projects/express-1m2-stand/export/.stamp
 
 projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
 	mkdir -p $(@D)
@@ -22,6 +22,11 @@ projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py
 projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py
 	cd $(@D) && python ../fuzzy_3mf.py
 
+projects/express-1m2-stand/export/.stamp: projects/express-1m2-stand/express_1m2_stand.py
+	mkdir -p $(@D)
+	cd $(@D) && python ../express_1m2_stand.py --no-preview
+	@touch $@
+
 export/.%.stamp: projects/%.py | export
 	cd export && python ../$<
 	@touch $@
@@ -30,7 +35,7 @@ export:
 	mkdir -p $@
 
 clean:
-	rm -rf export projects/trolley-key/export projects/scale-rails/export projects/puzzle-tray/export
+	rm -rf export projects/trolley-key/export projects/scale-rails/export projects/puzzle-tray/export projects/express-1m2-stand/export
 
 .PHONY: all clean ascut-oracle
 
