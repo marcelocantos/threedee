@@ -4,3 +4,9 @@ __pycache__/
 *.stl
 *.step
 .claude/worktrees/
+
+# Local Bambu LAN tools: printer IP, flattened presets, snapshots, logs
+tools/bambu/ip.local
+tools/bambu/*.json
+tools/bambu/*.log
+tools/bambu/*.jpg

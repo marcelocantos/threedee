@@ -12,6 +12,7 @@ Parametric 3D parts for 3D printing, built with
 - `projects/express-1m2-stand/` — Open lattice stand holding an OWC Express 1M2 SSD upright on its long edge, fins vertical, 10 mm off the table, with source, README and local exports
 - `projects/mixer-stand/` — Upright nose-down stand for a Braun MultiQuick stick-blender motor body: 45° cone seat for the coupling tip, loose guide sleeve round the wide ring, 140 mm round base, with source, README and local exports
 - `export/` — Build output (STL + STEP), gitignored
+- `tools/bambu/` — Local LAN tools for the Bambu X1 Carbon (preset flattening, FTPS upload, MQTT print/status, camera stills). Credentials are read from Bambu Studio at runtime; see `tools/bambu/README.md`.
 - `bullseye.yaml` — Convergence targets (edit via the bullseye tools, not by hand)
 
 ## Build
