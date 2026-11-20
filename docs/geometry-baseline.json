@@ -542,6 +542,23 @@
     "max_abs_volume": 0.00016880132898222655,
     "max_abs_bbox": 0.0,
     "max_abs_center_of_mass": 1.4202518627826066e-07,
+    "step_tolerances": {
+      "projects/catflap_rpi.py:catflap-rpi.step": {
+        "volume": 1.8917489796876907e-10,
+        "bbox": 0.0,
+        "center_of_mass": 1.3145040611561853e-13
+      },
+      "projects/scale-rails/scale_rails.py:scale-rails-assembly.step": {
+        "volume": 0.00016460183542221785,
+        "bbox": 0.0,
+        "center_of_mass": 1.5157723964875913e-08
+      },
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.step": {
+        "volume": 0.00016902446805033833,
+        "bbox": 0.0,
+        "center_of_mass": 1.8028866577424196e-07
+      }
+    },
     "face_count_mismatches": [],
     "mesh_hash_mismatches": [
       "projects/scale-rails/scale_rails.py:scale-rails-installed.stl",
@@ -555,9 +572,9 @@
     "missing": [],
     "part_count": 17,
     "mesh_triangle_span": {
-      "projects/scale-rails/scale_rails.py:scale-rails-plate.stl": 228,
-      "projects/scale-rails/scale_rails.py:scale-rails-installed.stl": 230
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.stl": 288,
+      "projects/scale-rails/scale_rails.py:scale-rails-installed.stl": 290
     },
-    "note": "Two back-to-back builds of every part, then three more scale-rails builds of the unshared exporter (sr-a, sr-b, and a later HEAD rebuild) and two of the shared exporter. Plate STEP volume is bimodal on build123d 0.13.0: one mode stays within 2.7338392101228237e-6 mm^3 of the stored solid, and the other (sr-a, before export_part.py existed, and the first shared-exporter check) sits 1.6475564916618168e-4 to 1.6606748977210373e-4 mm^3 below it. Face counts and bounding boxes matched in every sample. The volume tolerance is that largest excursion plus the wider within-mode gap, 1.6880132898222655e-4 mm^3. Centre of mass differs by at most 1.4202518627826066e-7 mm. Exact sorted-triangle hashes matched everywhere except scale-rails-plate.stl and scale-rails-installed.stl. Those two keep an exact vertex bounding box and the same 1 mm vertex-occupancy hash. Their triangle counts, across the make export and later rebuilds, sit at most 148 (plate, stored 770396, seen 770248) and 146 (installed, stored 771698, seen 771552) from the stored count. The span is that distance plus the largest gap between sorted samples of the same file (80 and 84), so 228 and 230. catflap-rpi.stl raw file bytes differ while the sorted triangles match."
+    "note": "The parts records are from the pre-refactor baseline in e68f493. The aggregate max_abs fields describe the original check. The current check uses artifact-specific STEP allowances from the archived pre-refactor measurements and the fresh merge-base controls in geometry-after.json. Each STEP allowance is the largest observed departure from the committed value plus the spread among the new controls for that metric. Each scale-rail triangle allowance uses the larger of the pre-refactor excursion or repeat spread, plus the largest gap between adjacent observed triangle counts. Bounding boxes, face counts, and the two mesh occupancy hashes compare exactly."
   }
 }

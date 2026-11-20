@@ -132,7 +132,7 @@ def run_part(script: str, args: list[str], directory: Path) -> dict:
         "python", str(ROOT / script), *args,
     ]
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT)
+    env.pop("PYTHONPATH", None)
     completed = subprocess.run(
         command, cwd=directory, capture_output=True, text=True, env=env
     )
@@ -199,7 +199,7 @@ def compare_files(left: dict, right: dict) -> list[dict]:
         if "mesh_sha256" in a or "mesh_sha256" in b:
             row["mesh_sha256"] = 0 if a.get("mesh_sha256") == b.get("mesh_sha256") else 1
             row["raw_sha256"] = 0 if a.get("raw_sha256") == b.get("raw_sha256") else 1
-            row["triangles"] = 0 if a.get("triangles") == b.get("triangles") else 1
+            row["triangles"] = abs(a["triangles"] - b["triangles"])
         rows.append(row)
     return rows
 
@@ -211,7 +211,9 @@ def collect_noise(deltas: dict) -> dict:
         "max_abs_center_of_mass": 0.0,
         "face_count_mismatches": [],
         "mesh_hash_mismatches": [],
+        "mesh_triangle_span": {},
         "raw_hash_mismatches": [],
+        "step_tolerances": {},
         "missing": [],
     }
     for script, rows in deltas.items():
@@ -221,10 +223,15 @@ def collect_noise(deltas: dict) -> dict:
                 summary["missing"].append(label)
                 continue
             if "volume" in row:
+                bbox = max(row["bbox_min"], row["bbox_max"])
+                if row["volume"] or bbox or row["center_of_mass"]:
+                    summary["step_tolerances"][label] = {
+                        "volume": row["volume"],
+                        "bbox": bbox,
+                        "center_of_mass": row["center_of_mass"],
+                    }
                 summary["max_abs_volume"] = max(summary["max_abs_volume"], row["volume"])
-                summary["max_abs_bbox"] = max(
-                    summary["max_abs_bbox"], row["bbox_min"], row["bbox_max"]
-                )
+                summary["max_abs_bbox"] = max(summary["max_abs_bbox"], bbox)
                 summary["max_abs_center_of_mass"] = max(
                     summary["max_abs_center_of_mass"], row["center_of_mass"]
                 )
@@ -232,6 +239,7 @@ def collect_noise(deltas: dict) -> dict:
                     summary["face_count_mismatches"].append(label)
             if row.get("mesh_sha256"):
                 summary["mesh_hash_mismatches"].append(label)
+                summary["mesh_triangle_span"][label] = row["triangles"]
             if row.get("raw_sha256"):
                 summary["raw_hash_mismatches"].append(label)
     summary["part_count"] = len(deltas)
@@ -242,9 +250,7 @@ def check(baseline_path: Path) -> int:
     baseline = json.loads(baseline_path.read_text())
     fresh = measure(1)
     noise = baseline.get("noise") or {}
-    volume_tol = float(noise.get("max_abs_volume") or 0.0)
-    bbox_tol = float(noise.get("max_abs_bbox") or 0.0)
-    com_tol = float(noise.get("max_abs_center_of_mass") or 0.0)
+    step_tolerances = noise.get("step_tolerances", {})
     failures = []
     if fresh["build123d"] != baseline["build123d"]:
         failures.append(
@@ -262,7 +268,12 @@ def check(baseline_path: Path) -> int:
             continue
         for name, got in files.items():
             exp = before[name]
+            label = f"{script}:{name}"
             if "volume" in exp:
+                tolerance = step_tolerances.get(label, {})
+                volume_tol = tolerance.get("volume", 0.0)
+                bbox_tol = tolerance.get("bbox", 0.0)
+                com_tol = tolerance.get("center_of_mass", 0.0)
                 if abs(float(got["volume"]) - float(exp["volume"])) > volume_tol:
                     failures.append(f"{script}:{name} volume {got['volume']} != {exp['volume']}")
                 for key, tol in (
@@ -278,7 +289,6 @@ def check(baseline_path: Path) -> int:
                         f"{script}:{name} faces {got['face_count']} != {exp['face_count']}"
                     )
             if "mesh_sha256" in exp:
-                label = f"{script}:{name}"
                 unstable = label in set(noise.get("mesh_hash_mismatches") or [])
                 if unstable:
                     if got.get("occupancy_sha256") != exp.get("occupancy_sha256"):
@@ -310,7 +320,7 @@ def check(baseline_path: Path) -> int:
         return 1
     print(
         f"geometric identity holds for {len(fresh['parts'])} parts "
-        f"(volume tol {volume_tol}, bbox tol {bbox_tol}, com tol {com_tol})"
+        f"with STEP tolerances on {len(step_tolerances)} artifact(s)"
     )
     return 0
 

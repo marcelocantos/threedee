@@ -35,7 +35,7 @@ make clean  # Remove the default build outputs
 ## Conventions
 
 - Part generators can run as scripts and export STL and STEP
-- The default Make targets share STL, STEP and viewer calls through `export_part.py`
+- The default Make targets share STL, STEP and viewer calls through `projects/export_part/`
 - Use build123d's algebra API (operators `+`, `-`, `&`) for combining solids
 - No epsilon hacks — BREP handles coincident faces correctly
 - File names use underscores in Python, hyphens in exports

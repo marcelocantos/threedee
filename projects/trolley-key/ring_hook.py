@@ -10,8 +10,13 @@ thin plate for export. Dimensions measured from a photo against a ruler.
 import argparse
 from math import acos, atan2, cos, hypot, sin
 import struct
+import sys
+from pathlib import Path
 
 from build123d import *
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import export_part  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--plate", action="store_true", help="Export ten keys on an X1 Carbon plate")
@@ -86,8 +91,6 @@ outer_edges = [
     and not (e.geom_type == GeomType.CIRCLE and abs(e.radius - foot_r) < 1e-6)
 ]
 result = fillet(outer_edges, outer_fillet)
-
-import export_part
 
 export_part.export_stl(result, "ring-hook.stl")
 export_part.export_step(result, "ring-hook.step")

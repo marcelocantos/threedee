@@ -27,9 +27,14 @@ front ends behind the lead-in and the back wall stay solid.
 """
 
 import argparse
+import sys
+from pathlib import Path
 from math import pi, sqrt, tan
 
 from build123d import *
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import export_part  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--no-preview", action="store_true", help="Export without opening the CAD viewer")
@@ -592,8 +597,6 @@ base_profile = Polygon(
 base = Pos(0, scale_y, 0) * extrude(Plane.XZ * base_profile, -scale_depth)
 scale = white + base
 assembly = Compound(children=[cradle, scale])
-
-import export_part
 
 export_part.export_stl(plate, "scale-rails-plate.stl")
 export_part.export_step(plate, "scale-rails-plate.step")

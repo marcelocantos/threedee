@@ -20,8 +20,13 @@ skirt are 45-degree slopes, and the windows are diamonds with 45-degree roofs).
 
 import argparse
 import math
+import sys
+from pathlib import Path
 
 from build123d import *
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import export_part  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--no-preview", action="store_true", help="Export without opening the CAD viewer")
@@ -208,8 +213,6 @@ mixer_bed = to_bed * mixer
 bbb = stand_bed.bounding_box()
 if bbb.min.X < 0 or bbb.min.Y < 0 or bbb.max.X > bed_size or bbb.max.Y > bed_size:
     raise ValueError("Stand is off the bed")
-
-import export_part
 
 export_part.export_stl(stand_bed, "mixer-stand.stl", tolerance=0.02, angular_tolerance=0.08)
 export_part.export_step(stand_bed, "mixer-stand.step")

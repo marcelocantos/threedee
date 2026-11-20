@@ -1,7 +1,7 @@
 # Copyright 2026 Marcelo Cantos
 # SPDX-License-Identifier: Apache-2.0
 
-"""The one STL/STEP export and the one viewer preview.
+"""Shared STL, STEP and viewer calls.
 
 Part scripts keep their own geometry. Keyword arguments are passed
 through, so a caller that omits tolerance gets build123d's defaults.
@@ -23,6 +23,7 @@ def export_step(shape, path, **kwargs):
 def preview(*shapes):
     try:
         from ocp_vscode import show
+
+        show(*shapes)
     except ImportError:
         return
-    show(*shapes)
