@@ -31,6 +31,7 @@ make clean  # Remove export/
 ## Conventions
 
 - Each project file is a standalone script that exports STL and STEP
+- STL, STEP and the optional viewer go through `export_part.py`
 - Use build123d's algebra API (operators `+`, `-`, `&`) for combining solids
 - No epsilon hacks — BREP handles coincident faces correctly
 - File names use underscores in Python, hyphens in exports

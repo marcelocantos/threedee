@@ -69,11 +69,8 @@ for i in range(2):
 
 result = body
 
-export_stl(result, "machinist-square-mount.stl")
-export_step(result, "machinist-square-mount.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "machinist-square-mount.stl")
+export_part.export_step(result, "machinist-square-mount.step")
+export_part.preview(result)

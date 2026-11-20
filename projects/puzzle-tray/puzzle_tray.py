@@ -271,10 +271,12 @@ if bb.min.X < exclude_x + 3 and bb.min.Y < exclude_y + 3:
 if bb.max.X > bed_size or bb.max.Y > bed_size or bb.min.X < 0 or bb.min.Y < 0:
     raise ValueError("Tray is off the bed")
 
-export_stl(tray, "puzzle-tray.stl", tolerance=0.02, angular_tolerance=0.08)
-export_step(tray, "puzzle-tray.step")
+import export_part
+
+export_part.export_stl(tray, "puzzle-tray.stl", tolerance=0.02, angular_tolerance=0.08)
+export_part.export_step(tray, "puzzle-tray.step")
 if modifier is not None:
-    export_stl(modifier, "puzzle-tray-grip-modifier.stl", tolerance=0.02, angular_tolerance=0.08)
+    export_part.export_stl(modifier, "puzzle-tray-grip-modifier.stl", tolerance=0.02, angular_tolerance=0.08)
 
 vol = tray.volume
 pla = 1.24  # g/cm^3
@@ -292,8 +294,4 @@ print(f"tray {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.2f} mm; "
       f"{vol / 1000:.1f} cm^3 (~{vol / 1000 * pla:.0f} g PLA); solids {len(tray.solids())}, valid {tray.is_valid}")
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(tray)
-    except ImportError:
-        pass
+    export_part.preview(tray)

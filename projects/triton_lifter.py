@@ -215,11 +215,8 @@ result = Compound(
     ]
 )
 
-export_stl(result, "triton-lifter.stl")
-export_step(result, "triton-lifter.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "triton-lifter.stl")
+export_part.export_step(result, "triton-lifter.step")
+export_part.preview(result)

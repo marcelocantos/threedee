@@ -62,11 +62,8 @@ for ix in range(-4, 5):
 
 result = part
 
-export_stl(result, "screw-box-partitions.stl")
-export_step(result, "screw-box-partitions.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "screw-box-partitions.stl")
+export_part.export_step(result, "screw-box-partitions.step")
+export_part.preview(result)

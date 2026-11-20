@@ -21,11 +21,8 @@ result = Compound(children=[
     for k in range(7)
 ])
 
-export_stl(result, "led-stumps.stl")
-export_step(result, "led-stumps.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "led-stumps.stl")
+export_part.export_step(result, "led-stumps.step")
+export_part.preview(result)

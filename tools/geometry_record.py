@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import struct
 import subprocess
@@ -130,7 +131,11 @@ def run_part(script: str, args: list[str], directory: Path) -> dict:
         "uv", "run", "--frozen", "--offline", "--project", str(ROOT),
         "python", str(ROOT / script), *args,
     ]
-    completed = subprocess.run(command, cwd=directory, capture_output=True, text=True)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    completed = subprocess.run(
+        command, cwd=directory, capture_output=True, text=True, env=env
+    )
     if completed.returncode != 0:
         sys.stderr.write(completed.stdout)
         sys.stderr.write(completed.stderr)

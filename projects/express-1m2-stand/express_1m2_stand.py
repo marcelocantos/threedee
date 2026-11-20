@@ -293,10 +293,12 @@ bbb = stand_bed.bounding_box()
 if bbb.min.X < 0 or bbb.min.Y < 0 or bbb.max.X > bed_size or bbb.max.Y > bed_size:
     raise ValueError("Stand is off the bed")
 
-export_stl(stand_bed, "express-1m2-stand.stl", tolerance=0.02, angular_tolerance=0.08)
-export_step(stand_bed, "express-1m2-stand.step")
+import export_part
+
+export_part.export_stl(stand_bed, "express-1m2-stand.stl", tolerance=0.02, angular_tolerance=0.08)
+export_part.export_step(stand_bed, "express-1m2-stand.step")
 if not args.no_standin:
-    export_stl(drive_bed, "express-1m2-standin.stl", tolerance=0.05, angular_tolerance=0.2)
+    export_part.export_stl(drive_bed, "express-1m2-standin.stl", tolerance=0.05, angular_tolerance=0.2)
 
 z_cg = g + H / 2
 vol = stand.volume
@@ -307,8 +309,4 @@ print(f"stand {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm; slot {y1 -
       f"{vol / 1000:.1f} cm^3 (~{vol / 1000 * pla:.0f} g PLA); solids {len(stand.solids())}, valid {stand.is_valid}")
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(stand, drive)
-    except ImportError:
-        pass
+    export_part.preview(stand, drive)

@@ -593,11 +593,13 @@ base = Pos(0, scale_y, 0) * extrude(Plane.XZ * base_profile, -scale_depth)
 scale = white + base
 assembly = Compound(children=[cradle, scale])
 
-export_stl(plate, "scale-rails-plate.stl")
-export_step(plate, "scale-rails-plate.step")
-export_step(assembly, "scale-rails-assembly.step")
-export_stl(cradle, "scale-rails-installed.stl")
-export_stl(scale, "scale-ghost.stl")
+import export_part
+
+export_part.export_stl(plate, "scale-rails-plate.stl")
+export_part.export_step(plate, "scale-rails-plate.step")
+export_part.export_step(assembly, "scale-rails-assembly.step")
+export_part.export_stl(cradle, "scale-rails-installed.stl")
+export_part.export_stl(scale, "scale-ghost.stl")
 
 print(f"cradle {outer} x {length} x {height} mm; plate turned, fronts to the right, with "
       f"{'brims' if brim_on else 'no brim'}; on the bed x {pb.min.X:.1f}..{pb.max.X:.1f}, "
@@ -615,8 +617,4 @@ for note in unrounded:
     print(f"left sharp (each side): {note}")
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(assembly)
-    except ImportError:
-        pass
+    export_part.preview(assembly)

@@ -209,10 +209,12 @@ bbb = stand_bed.bounding_box()
 if bbb.min.X < 0 or bbb.min.Y < 0 or bbb.max.X > bed_size or bbb.max.Y > bed_size:
     raise ValueError("Stand is off the bed")
 
-export_stl(stand_bed, "mixer-stand.stl", tolerance=0.02, angular_tolerance=0.08)
-export_step(stand_bed, "mixer-stand.step")
+import export_part
+
+export_part.export_stl(stand_bed, "mixer-stand.stl", tolerance=0.02, angular_tolerance=0.08)
+export_part.export_step(stand_bed, "mixer-stand.step")
 if not args.no_standin:
-    export_stl(mixer_bed, "mixer-standin.stl", tolerance=0.05, angular_tolerance=0.2)
+    export_part.export_stl(mixer_bed, "mixer-standin.stl", tolerance=0.05, angular_tolerance=0.2)
 
 print(f"mixer-stand: {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm; "
       f"{vol / 1000:.1f} cm^3 (~{vol / 1000 * pla:.0f} g PLA); solids {len(stand.solids())}, valid {stand.is_valid}")
@@ -228,8 +230,4 @@ for f, z_m, a, a0 in tips:
           f"{a0:.1f} deg ignoring the stand's weight")
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(stand, mixer)
-    except ImportError:
-        pass
+    export_part.preview(stand, mixer)

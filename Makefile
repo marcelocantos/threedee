@@ -1,6 +1,7 @@
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 # Frozen and offline: resolution happens in `uv sync`, not during a build.
 UV   := uv run --frozen --offline --project $(ROOT)
+export PYTHONPATH := $(ROOT)
 
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)

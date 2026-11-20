@@ -87,8 +87,10 @@ outer_edges = [
 ]
 result = fillet(outer_edges, outer_fillet)
 
-export_stl(result, "ring-hook.stl")
-export_step(result, "ring-hook.step")
+import export_part
+
+export_part.export_stl(result, "ring-hook.stl")
+export_part.export_step(result, "ring-hook.step")
 
 if args.plate:
     columns, rows = 5, 2
@@ -108,7 +110,7 @@ if args.plate:
         for col in range(columns)
     ]
     result = Compound(children=[Pos(*offset) * result for offset in offsets])
-    export_step(result, "trolley-key-10.step")
+    export_part.export_step(result, "trolley-key-10.step")
 
     # Translate the original triangles rather than remeshing the copied CAD
     # solids, so every printable copy preserves the accepted single-key mesh.
@@ -128,8 +130,4 @@ if args.plate:
                 output.write(struct.pack("<12fH", *moved))
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(result)
-    except ImportError:
-        pass
+    export_part.preview(result)

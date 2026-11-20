@@ -121,11 +121,8 @@ result = base_plate(
     bearings=True,
 )
 
-export_stl(result, "rotary-bearing.stl")
-export_step(result, "rotary-bearing.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "rotary-bearing.stl")
+export_part.export_step(result, "rotary-bearing.step")
+export_part.preview(result)

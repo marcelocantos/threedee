@@ -111,11 +111,8 @@ rj45 = Pos(box_l - wall / 2, rj45_y + rj45_w / 2, 7 + box_h / 2) * Box(wall, rj4
 
 result = built_up - mirror_slot - camera_bore - camera_sq - camera_screws - camera_window - usb1 - usb2 - rj45
 
-export_stl(result, "catflap-rpi.stl")
-export_step(result, "catflap-rpi.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "catflap-rpi.stl")
+export_part.export_step(result, "catflap-rpi.step")
+export_part.preview(result)

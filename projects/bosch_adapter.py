@@ -106,11 +106,8 @@ assembly = union(main, primary_slots, tab_slot, snap_tabs)
 # Original: translate([0, 0, hhi]) rotate(180, [1, 0, 0]) { ... }
 result = Pos(0, 0, hhi) * Rot(180, 0, 0) * assembly
 
-export_stl(result, "bosch-adapter.stl")
-export_step(result, "bosch-adapter.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "bosch-adapter.stl")
+export_part.export_step(result, "bosch-adapter.step")
+export_part.preview(result)
