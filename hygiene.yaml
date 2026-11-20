@@ -13,14 +13,14 @@ floors:            # per-dimension held-tier ratchet; below floor => DRIFT
   correctness: 0   # no tests, no CI; py_compile is syntax-only (ENT-002–004 survive)
   security: 0      # GitHub secret scanning disabled; no gitleaks/CodeQL
   quality: 0       # no ruff/format/lint config or gate
-  deps: 0          # no pyproject.toml / lockfile; CAD kernel unpinned (ENT-005)
+  deps: 0          # pyproject.toml pins build123d; py_gearworks is not a dependency
   release: 0       # no tags, changelog, or release workflow
-  governance: 0    # .gitignore only; LICENSE and README absent (licenseInfo=null)
-  build: 1         # Makefile all/clean exist; no CI; python unpinned
-  docs: 0          # CLAUDE.md + bullseye.yaml exist; no README
+  governance: 0    # README and .gitignore exist; LICENSE still absent (licenseInfo=null)
+  build: 1         # Makefile all/clean exist; kernel pinned; no CI
+  docs: 0          # CLAUDE.md, AGENTS.md, README and bullseye.yaml exist
   perf: 0          # geometry scripts; no runtime to benchmark
   vcs: 1           # default branch is master; unprotected; no committed hooks
-  agent: 1         # CLAUDE.md + bullseye.yaml; no AGENTS.md
+  agent: 1         # CLAUDE.md, AGENTS.md and bullseye.yaml
 
 tiers:
   1: baseline    # LICENSE + README + .gitignore; tests build & run
@@ -164,15 +164,12 @@ items:
   # =========================== DEPENDENCY HEALTH ==========================
   - id: deps.pyproject
     dim: deps
-    desc: pyproject.toml declares and pins build123d / py_gearworks
-    state: planned
+    desc: pyproject.toml pins the build123d release make runs
+    state: present
     cadence: once-must-hold
     enforce: blocking
     tier: 2
-    reason: >-
-      No pyproject.toml, requirements.txt, or lockfile. Makefile invokes
-      unpinned `python`; CAD kernel is a git-describe build (ENT-005).
-    evidence: {absent: {file: {path: pyproject.toml}}}
+    evidence: {file: {path: pyproject.toml, matches: 'build123d=='}}
 
   # ========================== RELEASE & VERSIONING =======================
   - id: release.changelog
@@ -214,12 +211,11 @@ items:
   - id: governance.readme
     dim: governance
     desc: README present
-    state: planned
+    state: present
     cadence: once-must-hold
     enforce: blocking
     tier: 1
-    reason: No README.md; CLAUDE.md is agent-facing only.
-    evidence: {absent: {file: {path: README.md}}}
+    evidence: {file: {path: README.md}}
 
   - id: governance.gitignore
     dim: governance
@@ -301,12 +297,11 @@ items:
   - id: docs.readme
     dim: docs
     desc: README documents the Python/Makefile build and print path
-    state: planned
+    state: present
     cadence: once-must-hold
     enforce: warning
     tier: 1
-    reason: No README.md. CLAUDE.md lists a missing docs/targets.md and omits the live OpenSCAD tree (ENT-001).
-    evidence: {absent: {file: {path: README.md}}}
+    evidence: {file: {path: README.md, matches: 'make'}}
 
   - id: docs.claude-md
     dim: docs
@@ -400,9 +395,8 @@ items:
   - id: agent.agents-md
     dim: agent
     desc: AGENTS.md present as the shared multi-tool instruction file
-    state: planned
+    state: present
     cadence: once-must-hold
     enforce: informational
     tier: 2
-    reason: Only CLAUDE.md exists; no AGENTS.md.
-    evidence: {absent: {file: {path: AGENTS.md}}}
+    evidence: {file: {path: AGENTS.md}}
