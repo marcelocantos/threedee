@@ -6,8 +6,10 @@ The CAD kernel is the pinned `build123d` release in `pyproject.toml`. `uv.lock` 
 
 ```bash
 uv sync     # create .venv and install the lockfile
-make        # build every part to export/
-make clean  # remove export/
+make        # build the default part set to its export/ directories
+make clean  # remove the default build outputs
 ```
 
-STL and STEP files are gitignored. Each part is a standalone script under `projects/`. Shared STL, STEP and viewer calls live in `export_part.py`. Convergence targets live in `bullseye.yaml`. Agent instructions live in `AGENTS.md`.
+STL and STEP files are gitignored. The default build covers the twelve top-level designs and the trolley key, scale rails, puzzle tray, SSD stand, and mixer stand. The other generators have their own entry points under `projects/ascut/`, `projects/haberdasher/`, and `projects/dissections/`.
+
+Convergence targets live in `bullseye.yaml`. Agent instructions live in `AGENTS.md`.

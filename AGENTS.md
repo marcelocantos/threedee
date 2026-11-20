@@ -7,12 +7,14 @@ This is the shared instruction file. `CLAUDE.md` points here.
 
 ## Structure
 
-- `projects/` — Individual part designs (one `.py` per part)
+- `projects/` — Part designs, command-line generators, and project tests
 - `projects/trolley-key/` — Shopping trolley coin substitute (ring hook), with source, README and local exports
 - `projects/scale-rails/` — One-piece under-shelf cradle (two rails joined by a back wall) for the Soehnle kitchen scale, with source, README and local exports
 - `projects/puzzle-tray/` — Tray for a 3 × 3 wooden picture-cube puzzle (replaces its cardboard box), with source, README and local exports
 - `projects/express-1m2-stand/` — Open lattice stand holding an OWC Express 1M2 SSD upright on its long edge, fins vertical, 10 mm off the table, with source, README and local exports
 - `projects/mixer-stand/` — Upright nose-down stand for a Braun MultiQuick stick-blender motor body: 45° cone seat for the coupling tip, loose guide sleeve round the wide ring, 140 mm round base, with source, README and local exports
+- `projects/ascut/` — Measurement-driven dovetail mate and calibrated thickness gauge
+- `projects/haberdasher/` and `projects/dissections/` — Printable dissection trays and tiles with exact geometry tests
 - `export/` — Build output (STL + STEP), gitignored
 - `tools/bambu/` — Local LAN tools for the Bambu X1 Carbon (preset flattening, FTPS upload, MQTT print/status, camera stills). Credentials are read from Bambu Studio at runtime; see `tools/bambu/README.md`.
 - `bullseye.yaml` — Convergence targets (edit via the bullseye tools, not by hand)
@@ -26,14 +28,14 @@ global interpreter.
 
 ```bash
 uv sync     # Create .venv and install the lockfile
-make        # Build all parts to export/
-make clean  # Remove export/
+make        # Build the default part set to its export/ directories
+make clean  # Remove the default build outputs
 ```
 
 ## Conventions
 
-- Each project file is a standalone script that exports STL and STEP
-- STL, STEP and the optional viewer go through `export_part.py`
+- Part generators can run as scripts and export STL and STEP
+- The default Make targets share STL, STEP and viewer calls through `export_part.py`
 - Use build123d's algebra API (operators `+`, `-`, `&`) for combining solids
 - No epsilon hacks — BREP handles coincident faces correctly
 - File names use underscores in Python, hyphens in exports
