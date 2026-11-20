@@ -17,7 +17,13 @@ Parametric 3D parts for 3D printing, built with
 
 ## Build
 
+The CAD kernel is the pinned `build123d` release in `pyproject.toml`
+(`uv.lock` pins the transitive set). `make` runs it with
+`uv run --frozen --offline` from the worktree `.venv`, not from a
+global interpreter.
+
 ```bash
+uv sync     # Create .venv and install the lockfile
 make        # Build all parts to export/
 make clean  # Remove export/
 ```

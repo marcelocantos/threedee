@@ -1,3 +1,7 @@
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+# Frozen and offline: resolution happens in `uv sync`, not during a build.
+UV   := uv run --frozen --offline --project $(ROOT)
+
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 
@@ -5,35 +9,35 @@ all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.s
 
 projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../ring_hook.py --plate --no-preview
+	cd $(@D) && $(UV) python ../ring_hook.py --plate --no-preview
 	@touch $@
 
 projects/scale-rails/export/.stamp: projects/scale-rails/scale_rails.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../scale_rails.py --no-preview
+	cd $(@D) && $(UV) python ../scale_rails.py --no-preview
 	@touch $@
 
 projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../puzzle_tray.py --no-preview
+	cd $(@D) && $(UV) python ../puzzle_tray.py --no-preview
 	@touch $@
 
 # Optional (needs Bambu Studio installed): tray + grip modifier with fuzzy skin, as a Studio project.
 projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py
-	cd $(@D) && python ../fuzzy_3mf.py
+	cd $(@D) && $(UV) python ../fuzzy_3mf.py
 
 projects/express-1m2-stand/export/.stamp: projects/express-1m2-stand/express_1m2_stand.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../express_1m2_stand.py --no-preview
+	cd $(@D) && $(UV) python ../express_1m2_stand.py --no-preview
 	@touch $@
 
 projects/mixer-stand/export/.stamp: projects/mixer-stand/mixer_stand.py
 	mkdir -p $(@D)
-	cd $(@D) && python ../mixer_stand.py --no-preview
+	cd $(@D) && $(UV) python ../mixer_stand.py --no-preview
 	@touch $@
 
 export/.%.stamp: projects/%.py | export
-	cd export && python ../$<
+	cd export && $(UV) python ../$<
 	@touch $@
 
 export:
