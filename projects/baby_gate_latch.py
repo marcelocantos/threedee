@@ -4,7 +4,6 @@
 """Baby gate latch — parametric latch with countersunk screw holes."""
 
 from build123d import *
-from math import sqrt
 
 # Screw hole dimensions
 r1 = 4.5 / 2  # shaft radius
@@ -89,11 +88,8 @@ result = baby_gate_latch(span=86.5)
 result2 = Pos(0, 60, 0) * baby_gate_latch(span=100)
 final = Compound(children=[result, result2])
 
-export_stl(final, "baby-gate-latch.stl")
-export_step(final, "baby-gate-latch.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(final)
-except ImportError:
-    pass
+export_part.export_stl(final, "baby-gate-latch.stl")
+export_part.export_step(final, "baby-gate-latch.step")
+export_part.preview(final)

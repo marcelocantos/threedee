@@ -114,11 +114,8 @@ clip = Pos(-10, -10, -10) * Box(grid_width + 20, grid_height + 20, 10, align=BOX
 
 result = union_all - holes[0].fuse(*holes[1:]) - clip
 
-export_stl(result, "router-bit-rack.stl")
-export_step(result, "router-bit-rack.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "router-bit-rack.stl")
+export_part.export_step(result, "router-bit-rack.step")
+export_part.preview(result)

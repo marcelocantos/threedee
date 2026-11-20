@@ -105,11 +105,8 @@ for j in range(2, 4):
 
 result = Compound(children=parts)
 
-export_stl(result, "starlock-holders.stl")
-export_step(result, "starlock-holders.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "starlock-holders.stl")
+export_part.export_step(result, "starlock-holders.step")
+export_part.preview(result)

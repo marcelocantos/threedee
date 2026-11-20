@@ -35,11 +35,8 @@ cavity = Pos(0, 0, wall) * Cylinder(radius=inner_d / 2, height=length, align=BAS
 
 result = tube + barrier - cavity
 
-export_stl(result, "magnet-tube.stl")
-export_step(result, "magnet-tube.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "magnet-tube.stl")
+export_part.export_step(result, "magnet-tube.step")
+export_part.preview(result)

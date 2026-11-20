@@ -51,11 +51,8 @@ slot = Pos(0, 1, H / 2) * Box(10, S1, S2)
 
 result = outer - inner - upper_cut - slot
 
-export_stl(result, "nailgun-tip.stl")
-export_step(result, "nailgun-tip.step")
+import export_part
 
-try:
-    from ocp_vscode import show
-    show(result)
-except ImportError:
-    pass
+export_part.export_stl(result, "nailgun-tip.stl")
+export_part.export_step(result, "nailgun-tip.step")
+export_part.preview(result)

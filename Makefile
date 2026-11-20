@@ -1,39 +1,44 @@
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+# Frozen and offline: resolution happens in `uv sync`, not during a build.
+UV   := uv run --frozen --offline --project $(ROOT)
+
+EXPORTER := projects/export_part/__init__.py
 PROJECTS := $(wildcard projects/*.py)
 STAMPS   := $(PROJECTS:projects/%.py=export/.%.stamp)
 
 all: $(STAMPS) projects/trolley-key/export/.stamp projects/scale-rails/export/.stamp projects/puzzle-tray/export/.stamp projects/express-1m2-stand/export/.stamp projects/mixer-stand/export/.stamp
 
-projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py
+projects/trolley-key/export/.stamp: projects/trolley-key/ring_hook.py $(EXPORTER)
 	mkdir -p $(@D)
-	cd $(@D) && python ../ring_hook.py --plate --no-preview
+	cd $(@D) && $(UV) python ../ring_hook.py --plate --no-preview
 	@touch $@
 
-projects/scale-rails/export/.stamp: projects/scale-rails/scale_rails.py
+projects/scale-rails/export/.stamp: projects/scale-rails/scale_rails.py $(EXPORTER)
 	mkdir -p $(@D)
-	cd $(@D) && python ../scale_rails.py --no-preview
+	cd $(@D) && $(UV) python ../scale_rails.py --no-preview
 	@touch $@
 
-projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py
+projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py $(EXPORTER)
 	mkdir -p $(@D)
-	cd $(@D) && python ../puzzle_tray.py --no-preview
+	cd $(@D) && $(UV) python ../puzzle_tray.py --no-preview
 	@touch $@
 
 # Optional (needs Bambu Studio installed): tray + grip modifier with fuzzy skin, as a Studio project.
 projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py
-	cd $(@D) && python ../fuzzy_3mf.py
+	cd $(@D) && $(UV) python ../fuzzy_3mf.py
 
-projects/express-1m2-stand/export/.stamp: projects/express-1m2-stand/express_1m2_stand.py
+projects/express-1m2-stand/export/.stamp: projects/express-1m2-stand/express_1m2_stand.py $(EXPORTER)
 	mkdir -p $(@D)
-	cd $(@D) && python ../express_1m2_stand.py --no-preview
+	cd $(@D) && $(UV) python ../express_1m2_stand.py --no-preview
 	@touch $@
 
-projects/mixer-stand/export/.stamp: projects/mixer-stand/mixer_stand.py
+projects/mixer-stand/export/.stamp: projects/mixer-stand/mixer_stand.py $(EXPORTER)
 	mkdir -p $(@D)
-	cd $(@D) && python ../mixer_stand.py --no-preview
+	cd $(@D) && $(UV) python ../mixer_stand.py --no-preview
 	@touch $@
 
-export/.%.stamp: projects/%.py | export
-	cd export && python ../$<
+export/.%.stamp: projects/%.py $(EXPORTER) | export
+	cd export && $(UV) python ../$<
 	@touch $@
 
 export:
@@ -42,7 +47,11 @@ export:
 clean:
 	rm -rf export projects/trolley-key/export projects/scale-rails/export projects/puzzle-tray/export projects/express-1m2-stand/export projects/mixer-stand/export
 
-.PHONY: all clean ascut-oracle
+.PHONY: all clean ascut-oracle geometry-check
+
+geometry-check:
+	$(UV) python -m unittest discover -s tools -p test_geometry_record.py
+	$(UV) python tools/geometry_record.py --check docs/geometry-baseline.json
 
 # Reimport the as-cut dovetail and gauge and compare them to the frozen referent.
 ascut-oracle:

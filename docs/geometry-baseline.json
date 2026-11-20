@@ -1,0 +1,580 @@
+{
+  "build123d": "0.13.0",
+  "python": "3.13.0",
+  "runs": 2,
+  "parts": {
+    "projects/baby_gate_latch.py": {
+      "baby-gate-latch.step": {
+        "volume": "13274.285725076797",
+        "bbox_min": [
+          "-4.9960036108124994e-16",
+          "0",
+          "0"
+        ],
+        "bbox_max": [
+          "113.5",
+          "100",
+          "10"
+        ],
+        "center_of_mass": [
+          "30.396013237492738",
+          "42.381062801821038",
+          "4.9999999999716573"
+        ],
+        "face_count": 30
+      },
+      "baby-gate-latch.stl": {
+        "triangles": 5196,
+        "mesh_sha256": "3f958f8f1b160ef1eedf977d0300ddb3e64ee9b01db937a2af280c224557f044",
+        "raw_sha256": "6dc7b00af5cf09dbf3147efd1a8a4d32bd9c6bc3fecb8a7d54cc07fc9c9ffb04"
+      }
+    },
+    "projects/bosch_adapter.py": {
+      "bosch-adapter.step": {
+        "volume": "15983.615128618689",
+        "bbox_min": [
+          "-23.980000000000004",
+          "-23.980000000000004",
+          "-1.0000000276415029e-07"
+        ],
+        "bbox_max": [
+          "23.980000000000004",
+          "23.980000000000004",
+          "24.800000100000059"
+        ],
+        "center_of_mass": [
+          "0.00014476374921643749",
+          "-5.403247112581913e-05",
+          "12.146375032688351"
+        ],
+        "face_count": 43
+      },
+      "bosch-adapter.stl": {
+        "triangles": 19638,
+        "mesh_sha256": "22c3b5e79bf6d251559fd990d28f9da300eb7432edf85e272f7a243b31c1f0cf",
+        "raw_sha256": "2fe17df0297de8e29b1603d71500fe2638fc599978d256fe3d1744a9a8bfcbef"
+      }
+    },
+    "projects/catflap_rpi.py": {
+      "catflap-rpi.step": {
+        "volume": "53965.973707541729",
+        "bbox_min": [
+          "-26.400000000000002",
+          "-0.40000000000000002",
+          "-0.40000000000000036"
+        ],
+        "bbox_max": [
+          "90.5",
+          "61.899999999999999",
+          "30.399999999999999"
+        ],
+        "center_of_mass": [
+          "16.445908505285708",
+          "31.321207887277353",
+          "11.494445286538669"
+        ],
+        "face_count": 93
+      },
+      "catflap-rpi.stl": {
+        "triangles": 15390,
+        "mesh_sha256": "d9938020ac9f45671de762a883455c686c2ff74ffd38295a91102e33d3ad4668",
+        "raw_sha256": "d204c5be3c3af4e9d7f13613d8278df15c511408ff05aaff0ae7a5ac982f6095"
+      }
+    },
+    "projects/led_stumps.py": {
+      "led-stumps.step": {
+        "volume": "17537.940988665407",
+        "bbox_min": [
+          "-5",
+          "-5",
+          "-10"
+        ],
+        "bbox_max": [
+          "17",
+          "77",
+          "10"
+        ],
+        "center_of_mass": [
+          "5.9999999999998384",
+          "35.999999999999886",
+          "3.1905250723145441e-17"
+        ],
+        "face_count": 56
+      },
+      "led-stumps.stl": {
+        "triangles": 14112,
+        "mesh_sha256": "ee42277c921e9b43f5aeb09d6f758939bfc25c7934ca6a6917f2094cdf926b94",
+        "raw_sha256": "63fbd4898a99bc5ccb89d75fda0febc7688007a34fe50c7b538af5bf2e726016"
+      }
+    },
+    "projects/machinist_square_mount.py": {
+      "machinist-square-mount.step": {
+        "volume": "152347.36054477651",
+        "bbox_min": [
+          "0",
+          "15",
+          "0"
+        ],
+        "bbox_max": [
+          "100",
+          "65",
+          "35"
+        ],
+        "center_of_mass": [
+          "49.566206278268083",
+          "40.596874557164114",
+          "17.118534233989973"
+        ],
+        "face_count": 52
+      },
+      "machinist-square-mount.stl": {
+        "triangles": 7504,
+        "mesh_sha256": "ee03c4143daccfa40952440676abe3ff139e09aa9d785bd88d5fcb4cf1d0358e",
+        "raw_sha256": "c77cd7d7680bf535136455c1f647f4f46fecf67e374f77f33db516a92355b911"
+      }
+    },
+    "projects/magnet_tube.py": {
+      "magnet-tube.step": {
+        "volume": "3474.6014748700745",
+        "bbox_min": [
+          "-12",
+          "-12",
+          "0"
+        ],
+        "bbox_max": [
+          "12",
+          "12",
+          "65"
+        ],
+        "center_of_mass": [
+          "3.7116875027005408e-13",
+          "-1.8401659768395972e-15",
+          "39.318188667870899"
+        ],
+        "face_count": 9
+      },
+      "magnet-tube.stl": {
+        "triangles": 2642,
+        "mesh_sha256": "9b5a1d477537117e9bcee57da72f6e4af1f9da522e08515d07da3efeec217249",
+        "raw_sha256": "ae5253c524f72289cfd86f9c33b11a033111b9103f12fd0f3e47b5714515d075"
+      }
+    },
+    "projects/nailgun_tip.py": {
+      "nailgun-tip.step": {
+        "volume": "176.98566176471365",
+        "bbox_min": [
+          "-4.25",
+          "-4.250000000000961",
+          "0"
+        ],
+        "bbox_max": [
+          "4.25",
+          "4.250000000000961",
+          "5"
+        ],
+        "center_of_mass": [
+          "-1.9044127278122121e-12",
+          "-0.22960691814106363",
+          "2.2902366218599672"
+        ],
+        "face_count": 18
+      },
+      "nailgun-tip.stl": {
+        "triangles": 76,
+        "mesh_sha256": "bd3b18ee84595a2adb61f4f34adff564a20b309159dba51397ab1b493a47bd6b",
+        "raw_sha256": "e8b2a5d9d85e364e1398efcf0301139a44e40f50947b3dcc7419bf339075cc1a"
+      }
+    },
+    "projects/rotary_bearing.py": {
+      "rotary-bearing.step": {
+        "volume": "59554.443906579036",
+        "bbox_min": [
+          "-108.54053377838",
+          "-108.54053377838",
+          "0"
+        ],
+        "bbox_max": [
+          "108.54053377838",
+          "108.54053377838",
+          "7.4000000000000004"
+        ],
+        "center_of_mass": [
+          "1.4292270774104439e-11",
+          "-4.9095667358515532e-12",
+          "1.0208532620156006"
+        ],
+        "face_count": 41
+      },
+      "rotary-bearing.stl": {
+        "triangles": 9074,
+        "mesh_sha256": "bed93a54cace18746fb2d2a8847c88f75d16ab644e4744adafbf1b1253228d77",
+        "raw_sha256": "f36aa13a899fbc295ad1225d8e1d51de6853e8ad4c95426ade1075e79688b145"
+      }
+    },
+    "projects/router_bit_rack.py": {
+      "router-bit-rack.step": {
+        "volume": "107751.89554136177",
+        "bbox_min": [
+          "-5.0000001000000003",
+          "-5.1763810020500003",
+          "-1.0000182264670768e-07"
+        ],
+        "bbox_max": [
+          "221.00000009999999",
+          "231.84427681777473",
+          "13.851131067272924"
+        ],
+        "center_of_mass": [
+          "108.01573692055283",
+          "112.54187502222787",
+          "4.5751701981362771"
+        ],
+        "face_count": 1701
+      },
+      "router-bit-rack.stl": {
+        "triangles": 120582,
+        "mesh_sha256": "68deeac136e22abe5527ce86c24230f5d2f40a52d1f0065158f1864b30f1a169",
+        "raw_sha256": "863a37f7cafadc2523cdb315912baf1cc6a5a4a19852eba75af0b3e83fab6a5c"
+      }
+    },
+    "projects/screw_box_partitions.py": {
+      "screw-box-partitions.step": {
+        "volume": "1377.1624960911711",
+        "bbox_min": [
+          "0",
+          "-1.0425688090620611e-15",
+          "0"
+        ],
+        "bbox_max": [
+          "40.5",
+          "49.000000000000199",
+          "1.3999999999999999"
+        ],
+        "center_of_mass": [
+          "19.876555467721069",
+          "24.500000000000131",
+          "0.50550706725340389"
+        ],
+        "face_count": 124
+      },
+      "screw-box-partitions.stl": {
+        "triangles": 51184,
+        "mesh_sha256": "dfb0a5a6b0baf30ff5980aa3d295959c90135ebda8adb4d261648e7435f3bfdc",
+        "raw_sha256": "fa57339a0311e025a561fb7fa138356a058f5aa0fc09d52b3c64aee226ed9368"
+      }
+    },
+    "projects/starlock_holders.py": {
+      "starlock-holders.step": {
+        "volume": "67718.202607360858",
+        "bbox_min": [
+          "-125.59999999999999",
+          "-6.2999999999999998",
+          "-1.7500000000000047"
+        ],
+        "bbox_max": [
+          "125.59999999999999",
+          "81.899999999999991",
+          "30"
+        ],
+        "center_of_mass": [
+          "9.1162534769785074e-10",
+          "41.875544558278044",
+          "7.2087470839284125"
+        ],
+        "face_count": 384
+      },
+      "starlock-holders.stl": {
+        "triangles": 205188,
+        "mesh_sha256": "83ec98c7e44d3453ad4633e0cb9e1eaf71746880c4c41d0dad1b9e2470e3ff59",
+        "raw_sha256": "6d1c23e74c70b9343cbb60aec9885bfb2a93eaf672804f5f7966f228a4a9dadf"
+      }
+    },
+    "projects/triton_lifter.py": {
+      "triton-lifter.step": {
+        "volume": "6313.9655367207661",
+        "bbox_min": [
+          "-16.054173582071883",
+          "-16.054173582071883",
+          "-2.7000000000000002"
+        ],
+        "bbox_max": [
+          "51.05417358207459",
+          "16.054173582074586",
+          "8.8173712134093272"
+        ],
+        "center_of_mass": [
+          "17.462375576847545",
+          "1.4620779387466593e-11",
+          "2.7503771455867261"
+        ],
+        "face_count": 2977
+      },
+      "triton-lifter.stl": {
+        "triangles": 10616,
+        "mesh_sha256": "c0022d780e318e03dc134276c257050920e1e2d6b93f2627d8575e1380a5b9d5",
+        "raw_sha256": "8605a580a0db067a2ce4e6e918d15062122bfc5a7661ec75ad9be5c8d8370b98"
+      }
+    },
+    "projects/trolley-key/ring_hook.py": {
+      "ring-hook.step": {
+        "volume": "1042.9035054261701",
+        "bbox_min": [
+          "-9.9442720099989987",
+          "-10.000000099999999",
+          "-1.110223024625e-16"
+        ],
+        "bbox_max": [
+          "9.9442720099989987",
+          "34.75",
+          "3"
+        ],
+        "center_of_mass": [
+          "5.3704252808814568e-13",
+          "10.486076121705601",
+          "1.5000000000000013"
+        ],
+        "face_count": 65
+      },
+      "ring-hook.stl": {
+        "triangles": 85990,
+        "mesh_sha256": "da2cdd39e9ed43c5904623582ac2c3b0f04547e3378add9719a8441a4e647e44",
+        "raw_sha256": "0266ebf862968d6d2ab0f2c4179138716abf9b28d5096b8dabaad296ce42da06"
+      },
+      "trolley-key-10.step": {
+        "volume": "10429.035054261702",
+        "bbox_min": [
+          "68.278639950004006",
+          "80.749999800000012",
+          "0"
+        ],
+        "bbox_max": [
+          "187.72136004998899",
+          "175.25000009999999",
+          "3"
+        ],
+        "center_of_mass": [
+          "127.99999999999949",
+          "126.11107607170725",
+          "1.5000000000000016"
+        ],
+        "face_count": 650
+      },
+      "trolley-key-10.stl": {
+        "triangles": 859900,
+        "mesh_sha256": "972ebc7747013870e5625723ffc5149f1929d3387437ec986d4169564bbe71a4",
+        "raw_sha256": "df147ec6fb91a116848f1ce05bf1c1df1f43cec046a85e52593bf4660a604572"
+      }
+    },
+    "projects/scale-rails/scale_rails.py": {
+      "scale-ghost.stl": {
+        "triangles": 28,
+        "mesh_sha256": "0b8f367e92cb6d93ffe8096f150f4a8388d051d63152bc0ae65d39d00aac3510",
+        "raw_sha256": "5180262dc3fdb48e37801ce31ee80c198ae60309d5f010595a13cbc7d84b1abc"
+      },
+      "scale-rails-assembly.step": {
+        "volume": "1013971.212138148",
+        "bbox_min": [
+          "-10.500000099999999",
+          "-10",
+          "-24"
+        ],
+        "bbox_max": [
+          "232.5",
+          "214",
+          "9.9999999999999995e-08"
+        ],
+        "center_of_mass": [
+          "110.99999988126022",
+          "102.3712571195982",
+          "-11.265205294145945"
+        ],
+        "face_count": 1541
+      },
+      "scale-rails-installed.stl": {
+        "triangles": 771698,
+        "mesh_sha256": "3f207819c8f2a1ffcd71dca55ac3ee6efbe98a8e919861d11f404a0e4492925d",
+        "raw_sha256": "292c85ce1ce42072aebd6efc569840a7d27ed5e38dc6338ec8de320aa480b586",
+        "occupancy_mm": 1.0,
+        "occupancy_sha256": "c9917f70fbd33e1e4d14f696f6930abbb21bc46761be099c060d5b8053522c92",
+        "mesh_bbox_min": [
+          "-10.5",
+          "-2.2204460492503131e-16",
+          "-24"
+        ],
+        "mesh_bbox_max": [
+          "232.5",
+          "214",
+          "0"
+        ]
+      },
+      "scale-rails-plate.step": {
+        "volume": "105169.71201065049",
+        "bbox_min": [
+          "20.999999999999993",
+          "3.4999999999999982",
+          "0"
+        ],
+        "bbox_max": [
+          "249.00000000000006",
+          "252.50000000000006",
+          "24.000000100000001"
+        ],
+        "center_of_mass": [
+          "118.1091770306365",
+          "127.99999883940666",
+          "8.800585150851159"
+        ],
+        "face_count": 1643
+      },
+      "scale-rails-plate.stl": {
+        "triangles": 770396,
+        "mesh_sha256": "ea20fb0159c1b0c2a4d8f63ae3b42e23d113958c2e56c1885d24ab47ff39f812",
+        "raw_sha256": "2d3d95aa8f57e21ac5df398758b7d2efc7e9a992ac50b3f993f81f97da9a8091",
+        "occupancy_mm": 1.0,
+        "occupancy_sha256": "0b5e9a6c6123f89dae21a7ee437f479a12ba040bb1911d026e14bcf88a9f1682",
+        "mesh_bbox_min": [
+          "21",
+          "3.5",
+          "0"
+        ],
+        "mesh_bbox_max": [
+          "249",
+          "252.5",
+          "24"
+        ]
+      }
+    },
+    "projects/puzzle-tray/puzzle_tray.py": {
+      "puzzle-tray-grip-modifier.stl": {
+        "triangles": 1792,
+        "mesh_sha256": "6ae3edc666f1c70faacb5849fe6d69ef6a198ac359ed2ff3e6ab196fbe6a226e",
+        "raw_sha256": "b31e1a1ffced9543833e789220c982baa879149f0326bf2afa9b2c7624aa0ba4"
+      },
+      "puzzle-tray.step": {
+        "volume": "89030.724357798375",
+        "bbox_min": [
+          "51.549999899999982",
+          "51.549999899999989",
+          "-1.0000000005838672e-07"
+        ],
+        "bbox_max": [
+          "204.45000010000004",
+          "204.45000010000004",
+          "20.040000100000221"
+        ],
+        "center_of_mass": [
+          "127.99999999776827",
+          "127.99999989248593",
+          "6.3649596594288989"
+        ],
+        "face_count": 155
+      },
+      "puzzle-tray.stl": {
+        "triangles": 111804,
+        "mesh_sha256": "aed4d20fe121fc8418cadeab43005df146613bb23efc5d8a400bd4eb1ac398ab",
+        "raw_sha256": "26d85bc4c71d1560824255fcd788158db81b199c0b1b2ec79a83445b7719cb85"
+      }
+    },
+    "projects/express-1m2-stand/express_1m2_stand.py": {
+      "express-1m2-stand.step": {
+        "volume": "33967.605652914601",
+        "bbox_min": [
+          "54.899999999999999",
+          "80",
+          "0"
+        ],
+        "bbox_max": [
+          "201.09999999999999",
+          "176",
+          "45"
+        ],
+        "center_of_mass": [
+          "130.58006177263488",
+          "126.46520902475676",
+          "7.1343625312490433"
+        ],
+        "face_count": 801
+      },
+      "express-1m2-stand.stl": {
+        "triangles": 4944,
+        "mesh_sha256": "0d3c5efd8cde19b93f7f30c97ecf1e69a71e6191ee32b9282ad2c6261ea6b816",
+        "raw_sha256": "3e90db8e2b62dbab17ba649aeecc9e9d6f272be993dcbdbf17c9447201a183ea"
+      },
+      "express-1m2-standin.stl": {
+        "triangles": 1124,
+        "mesh_sha256": "f5cc0e3337dcd2db651e9fa61d74ed592c95ba32709c7312916e8e547495d312",
+        "raw_sha256": "de1b6ea08061c3db9953ef8ef9c821a8974aaf6eb3c60ff670efbec83cee9327"
+      }
+    },
+    "projects/mixer-stand/mixer_stand.py": {
+      "mixer-stand.step": {
+        "volume": "114894.83410984195",
+        "bbox_min": [
+          "57.999999899999999",
+          "58",
+          "0"
+        ],
+        "bbox_max": [
+          "198",
+          "198",
+          "51.75"
+        ],
+        "center_of_mass": [
+          "127.99999999999314",
+          "128.0000000000002",
+          "15.723418039089943"
+        ],
+        "face_count": 127
+      },
+      "mixer-stand.stl": {
+        "triangles": 70990,
+        "mesh_sha256": "6d4306ea9ed8801776e077032d1847e5e52fdff9a3ffc2db80bb7f9c29332fa9",
+        "raw_sha256": "8f55106077bd4791a6882bf7d9ec7e200b86b68b8833ff71ec89361aee1ddd16"
+      },
+      "mixer-standin.stl": {
+        "triangles": 4514,
+        "mesh_sha256": "7012ecff437725b4c6a4f67236a96d19ba63960224e6a6bcb83761869afba917",
+        "raw_sha256": "e76f30323dd4143cffb3a850faf7a8e71c515943d8e8736ce822315bcf4b6119"
+      }
+    }
+  },
+  "noise": {
+    "max_abs_volume": 0.00016880132898222655,
+    "max_abs_bbox": 0.0,
+    "max_abs_center_of_mass": 1.4202518627826066e-07,
+    "step_tolerances": {
+      "projects/catflap_rpi.py:catflap-rpi.step": {
+        "volume": 1.8917489796876907e-10,
+        "bbox": 0.0,
+        "center_of_mass": 1.3145040611561853e-13
+      },
+      "projects/scale-rails/scale_rails.py:scale-rails-assembly.step": {
+        "volume": 0.00016460183542221785,
+        "bbox": 0.0,
+        "center_of_mass": 1.5157723964875913e-08
+      },
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.step": {
+        "volume": 0.00016902446805033833,
+        "bbox": 0.0,
+        "center_of_mass": 1.8028866577424196e-07
+      }
+    },
+    "face_count_mismatches": [],
+    "mesh_hash_mismatches": [
+      "projects/scale-rails/scale_rails.py:scale-rails-installed.stl",
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.stl"
+    ],
+    "raw_hash_mismatches": [
+      "projects/catflap_rpi.py:catflap-rpi.stl",
+      "projects/scale-rails/scale_rails.py:scale-rails-installed.stl",
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.stl"
+    ],
+    "missing": [],
+    "part_count": 17,
+    "mesh_triangle_span": {
+      "projects/scale-rails/scale_rails.py:scale-rails-plate.stl": 288,
+      "projects/scale-rails/scale_rails.py:scale-rails-installed.stl": 290
+    },
+    "note": "The parts records are from the pre-refactor baseline in e68f493. The aggregate max_abs fields describe the original check. The current check uses artifact-specific STEP allowances from the archived pre-refactor measurements and the fresh merge-base controls in geometry-after.json. Each STEP allowance is the largest observed departure from the committed value plus the spread among the new controls for that metric. Each scale-rail triangle allowance uses the larger of the pre-refactor excursion or repeat spread, plus the largest gap between adjacent observed triangle counts. Bounding boxes, face counts, and the two mesh occupancy hashes compare exactly."
+  }
+}

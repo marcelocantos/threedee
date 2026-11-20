@@ -10,8 +10,13 @@ thin plate for export. Dimensions measured from a photo against a ruler.
 import argparse
 from math import acos, atan2, cos, hypot, sin
 import struct
+import sys
+from pathlib import Path
 
 from build123d import *
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import export_part  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--plate", action="store_true", help="Export ten keys on an X1 Carbon plate")
@@ -87,8 +92,8 @@ outer_edges = [
 ]
 result = fillet(outer_edges, outer_fillet)
 
-export_stl(result, "ring-hook.stl")
-export_step(result, "ring-hook.step")
+export_part.export_stl(result, "ring-hook.stl")
+export_part.export_step(result, "ring-hook.step")
 
 if args.plate:
     columns, rows = 5, 2
@@ -108,7 +113,7 @@ if args.plate:
         for col in range(columns)
     ]
     result = Compound(children=[Pos(*offset) * result for offset in offsets])
-    export_step(result, "trolley-key-10.step")
+    export_part.export_step(result, "trolley-key-10.step")
 
     # Translate the original triangles rather than remeshing the copied CAD
     # solids, so every printable copy preserves the accepted single-key mesh.
@@ -128,8 +133,4 @@ if args.plate:
                 output.write(struct.pack("<12fH", *moved))
 
 if not args.no_preview:
-    try:
-        from ocp_vscode import show
-        show(result)
-    except ImportError:
-        pass
+    export_part.preview(result)
