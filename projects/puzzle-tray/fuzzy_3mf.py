@@ -12,57 +12,52 @@ stale slice. Open the result in Bambu Studio, pick the filament, and slice.
 """
 
 import argparse
-import glob
 import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import zipfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.bambu.flatten import (  # noqa: E402
+    DEFAULT_FILAMENT,
+    DEFAULT_MACHINE,
+    DEFAULT_PRESETS,
+    DEFAULT_PROCESS,
+    MISSING_AMS_START,
+    has_ams_start,
+    load_index,
+    resolve,
+)
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--studio", default="/Applications/BambuStudio.app/Contents/MacOS/BambuStudio")
-parser.add_argument("--presets", default=os.path.expanduser("~/Library/Application Support/BambuStudio/system/BBL"))
+parser.add_argument("--presets", type=Path, default=DEFAULT_PRESETS)
 parser.add_argument("--thickness", default="0.3", help="Fuzzy skin thickness (mm)")
 parser.add_argument("--point-distance", default="0.8", help="Fuzzy skin point distance (mm)")
 parser.add_argument("--out", default="puzzle-tray-fuzzy-grips.3mf")
 args = parser.parse_args()
 
 TRAY, MOD = "puzzle-tray.stl", "puzzle-tray-grip-modifier.stl"
-PRESETS = [("machine", "Bambu Lab X1 Carbon 0.4 nozzle"),
-           ("process", "0.20mm Standard @BBL X1C"),
-           ("filament", "Bambu PLA Basic @BBL X1C")]
-
-index = {}
-for kind, _ in PRESETS:
-    for f in glob.glob(f"{args.presets}/{kind}/**/*.json", recursive=True):
-        try:
-            d = json.load(open(f))
-        except (OSError, ValueError):
-            continue
-        if "name" in d:
-            index[(kind, d["name"])] = d
-
-
-def flatten(kind, name):
-    d = index[(kind, name)]
-    out = flatten(kind, d["inherits"]) if d.get("inherits") else {}
-    out.update(d)
-    out.pop("inherits", None)
-    return out
-
+PRESETS = [("machine", DEFAULT_MACHINE), ("process", DEFAULT_PROCESS), ("filament", DEFAULT_FILAMENT)]
+index, by_name = load_index(args.presets)
 
 with tempfile.TemporaryDirectory() as tmp:
     files = []
     for kind, name in PRESETS:
-        d = flatten(kind, name)
+        d = resolve(index, by_name, kind, name)
+        if kind == "machine" and not has_ams_start(d):
+            raise SystemExit(MISSING_AMS_START)
         d["from"] = "system"
-        path = os.path.join(tmp, f"{kind}.json")
-        json.dump(d, open(path, "w"))
+        path = Path(tmp) / f"{kind}.json"
+        path.write_text(json.dumps(d))
         files.append(path)
     assembled = os.path.join(tmp, "assembled.3mf")
     subprocess.run([args.studio, "--debug", "1", "--arrange", "0", "--assemble", "--slice", "0",
-                    "--load-settings", f"{files[0]};{files[1]}", "--load-filaments", files[2],
+                    "--load-settings", f"{files[0]};{files[1]}", "--load-filaments", str(files[2]),
                     "--export-3mf", assembled, os.path.abspath(TRAY), os.path.abspath(MOD)],
                    check=True, capture_output=True)
     if not os.path.exists(assembled):

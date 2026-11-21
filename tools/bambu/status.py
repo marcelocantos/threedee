@@ -74,7 +74,7 @@ def main(argv=None) -> int:
             )
     vt = got.get("vt_tray") or {}
     print("vt_tray", {k: vt.get(k) for k in ("tray_type", "tray_color", "tray_info_idx")})
-    return 0
+    return 0 if got else 1
 
 
 if __name__ == "__main__":

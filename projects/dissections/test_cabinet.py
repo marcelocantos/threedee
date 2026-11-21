@@ -148,6 +148,30 @@ class CabinetTranslationTests(unittest.TestCase):
         cabinet._segment_clear(before, after, 0, [obstacle])
 
 
+class CabinetHalfTurnTests(unittest.TestCase):
+    obstacle = _ring([(0, 0), (6, 0), (6, 2), (2, 2), (2, 6), (0, 6)])
+
+    def test_half_turn_disk_rejects_pivot_inside_concave_obstacle(self):
+        # The disk lies entirely within the upper arm. It misses every edge,
+        # and the reflex edge's supporting line puts the pivot on the right.
+        moving = _ring([(1, 4), (F(5, 4), 4), (1, F(17, 4))])
+        self.assertFalse(cabinet._disk_clears(moving, [self.obstacle]))
+
+    def test_half_turn_disk_accepts_clear_notch_and_rejects_tangency(self):
+        # From (3, 3) the notch walls are exactly one unit away.
+        tiny = F(1, 10**15)
+        obstacle = self.obstacle[:3] + self.obstacle[2:]
+        for radius, clear in [(1 - tiny, True), (F(1), False), (1 + tiny, False)]:
+            with self.subTest(radius=radius):
+                moving = _ring([(3, 3), (3 + radius, 3), (3, 3 + radius)])
+                turned = cabinet._apply(moving, 0, 0, 2)
+                if clear:
+                    cabinet._segment_clear(moving, turned, 1, [obstacle])
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "half-turn disk is not clear"):
+                        cabinet._segment_clear(moving, turned, 1, [obstacle])
+
+
 class CabinetKerfTests(unittest.TestCase):
     def test_impossible_inset_cannot_fit_a_large_pocket(self):
         inner = [(-1, -1), (1, -1), (1, 1), (-1, 1)]

@@ -25,7 +25,7 @@ TERMINAL = {"FINISH", "FAILED"}
 
 
 def ts() -> str:
-    return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S AEDT")
+    return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def redact(text: str) -> str:
@@ -118,7 +118,7 @@ def main(argv=None) -> int:
                         seen_terminal_at = now
                     elif now - seen_terminal_at >= args.hold:
                         write(f"{ts()} terminal state {state} held; exiting")
-                        break
+                        return 1 if state == "FAILED" else 0
                 else:
                     seen_terminal_at = None
             if now - start > 30 and not got and int(now - start) % 30 == 0:

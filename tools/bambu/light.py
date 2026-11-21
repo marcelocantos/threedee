@@ -69,7 +69,7 @@ def main(argv=None) -> int:
     finally:
         client.loop_stop()
     print("done", flush=True)
-    return 0
+    return 0 if ack else 1
 
 
 if __name__ == "__main__":

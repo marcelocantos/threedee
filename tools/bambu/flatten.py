@@ -35,6 +35,10 @@ DEFAULT_PRESETS = Path.home() / "Library/Application Support/BambuStudio/system/
 DEFAULT_MACHINE = "Bambu Lab X1 Carbon 0.4 nozzle"
 DEFAULT_PROCESS = "0.20mm Standard @BBL X1C"
 DEFAULT_FILAMENT = "Bambu PLA Basic @BBL X1C"
+MISSING_AMS_START = (
+    "error: flattened machine_start_gcode has no M620 S[...]; "
+    "include templates were probably not resolved"
+)
 
 
 def load_index(root: Path) -> tuple[dict, dict]:
@@ -76,6 +80,12 @@ def resolve(idx, by_name, sub, name, seen=None):
     return out
 
 
+def has_ams_start(data: dict) -> bool:
+    start = data.get("machine_start_gcode", "")
+    # Studio stores a template; slicing turns this into M620 S0A.
+    return isinstance(start, str) and "M620 S[" in start
+
+
 def flatten(idx, by_name, sub, name, dest: Path, extra=None) -> dict:
     data = resolve(idx, by_name, sub, name)
     if extra:
@@ -83,15 +93,13 @@ def flatten(idx, by_name, sub, name, dest: Path, extra=None) -> dict:
     dest.write_text(json.dumps(data, indent=1) + "\n")
     start = data.get("machine_start_gcode", "")
     start_len = len(start) if isinstance(start, str) else None
-    # Studio stores a template; slicing turns this into M620 S0A.
-    has_m620 = isinstance(start, str) and "M620 S[" in start
     has_m621 = isinstance(start, str) and "M621 S[" in start
     has_e50 = isinstance(start, str) and "G1 E50" in start
     print(
         dest,
         "nkeys", len(data),
         "start_gcode", start_len,
-        "M620_S[", has_m620,
+        "M620_S[", has_ams_start(data),
         "M621_S[", has_m621,
         "E50", has_e50,
         "colour", data.get("filament_colour"),
@@ -143,13 +151,8 @@ def main(argv=None) -> int:
     flatten(idx, by_name, "process", args.process, args.out_dir / "process.json", process_extra)
     flatten(idx, by_name, "filament", args.filament, args.out_dir / "filament.json", filament_extra)
 
-    start = machine.get("machine_start_gcode", "")
-    if not (isinstance(start, str) and "M620 S[" in start):
-        print(
-            "error: flattened machine_start_gcode has no M620 S[...]; "
-            "include templates were probably not resolved",
-            file=sys.stderr,
-        )
+    if not has_ams_start(machine):
+        print(MISSING_AMS_START, file=sys.stderr)
         return 1
     return 0
 

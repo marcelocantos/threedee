@@ -24,7 +24,7 @@ projects/puzzle-tray/export/.stamp: projects/puzzle-tray/puzzle_tray.py $(EXPORT
 	@touch $@
 
 # Optional (needs Bambu Studio installed): tray + grip modifier with fuzzy skin, as a Studio project.
-projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py
+projects/puzzle-tray/export/puzzle-tray-fuzzy-grips.3mf: projects/puzzle-tray/export/.stamp projects/puzzle-tray/fuzzy_3mf.py tools/bambu/flatten.py
 	cd $(@D) && $(UV) python ../fuzzy_3mf.py
 
 projects/express-1m2-stand/export/.stamp: projects/express-1m2-stand/express_1m2_stand.py $(EXPORTER)

@@ -219,32 +219,26 @@ def _apply(ring, dx, dy, quarter):
 
 
 def _disk_clears(ring, obstacles) -> bool:
-    """The closed disk about ring[0] through the other vertices misses ``obstacles``."""
+    """The closed disk centered at ring[0] and enclosing the ring misses the obstacles."""
     pivot = ring[0]
     rad2 = max((x - pivot[0]) ** 2 + (y - pivot[1]) ** 2 for x, y in ring)
     for obs in obstacles:
-        if not _strict_outside(obs, pivot):
+        edges = list(zip(obs, obs[1:] + obs[:1]))
+        if _point_covered(edges, pivot):
             return False
-        for i in range(len(obs)):
-            if _dist2(pivot, obs[i], obs[(i + 1) % len(obs)]) <= rad2:
-                return False
+        if any(_dist2(pivot, a, b) <= rad2 for a, b in edges):
+            return False
     return True
-
-
-def _strict_outside(poly, p) -> bool:
-    return any(_cross(poly[i], poly[(i + 1) % len(poly)], p) < 0 for i in range(len(poly)))
 
 
 def _dist2(p, a, b):
     vx, vy = b[0] - a[0], b[1] - a[1]
+    wx, wy = p[0] - a[0], p[1] - a[1]
     length2 = vx * vx + vy * vy
-    t = ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / length2
-    if t < 0:
-        t = 0
-    elif t > 1:
-        t = 1
-    qx, qy = a[0] + t * vx, a[1] + t * vy
-    return (p[0] - qx) ** 2 + (p[1] - qy) ** 2
+    if length2 == 0:
+        return wx * wx + wy * wy
+    t = min(1, max(0, F(wx * vx + wy * vy) / length2))
+    return (wx - t * vx) ** 2 + (wy - t * vy) ** 2
 
 
 def _swept_triangle_overlaps(tri, other, dx, dy) -> bool:
@@ -412,7 +406,7 @@ def _perigal_home():
 
 
 # (dx, dy, quarter-turns). Found by a grid search and checked continuously
-# below: translations at every eighth of the segment, half-turns by a
+# below: translations over the swept area, half-turns by a
 # disk that misses the other pieces.
 _PERIGAL_MOVES = [
     ("q3", [(0, 0, 0), (0, -3, 0), (-6, -3, 0), (-6, 5, 0), (1, 5, 0)]),
