@@ -20,8 +20,6 @@ import time
 import zipfile
 from pathlib import Path
 
-from creds import AC, IP, SERIAL
-
 AMS_LOAD = "M620 S0A"
 
 
@@ -41,9 +39,10 @@ def plate_gcode_text(path: Path) -> str:
 
 
 def has_ams_load(text: str) -> bool:
+    command = AMS_LOAD.split()
     for line in text.splitlines():
         code = line.split(";", 1)[0]
-        if AMS_LOAD in code:
+        if code.split(maxsplit=2)[:2] == command:
             return True
     return False
 
@@ -87,6 +86,8 @@ def main(argv=None) -> int:
         return 1
     else:
         print(f"note: {args.file} is not a local file; skipping the M620 check", file=sys.stderr)
+
+    from creds import AC, IP, SERIAL
 
     remote = args.remote_name or args.file.name
     job = args.job_name or Path(remote).stem.replace(".gcode", "")

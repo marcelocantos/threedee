@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import shutil
 import struct
@@ -68,6 +69,8 @@ def mesh_identity(path: Path) -> dict:
     expect = 84 + count * 50
     if expect != len(data):
         raise SystemExit(f"{path} binary STL length {len(data)} != {expect}")
+    if count == 0:
+        raise SystemExit(f"{path} binary STL has no triangles")
     records = [data[84 + i * 50 : 84 + (i + 1) * 50] for i in range(count)]
     digest = hashlib.sha256()
     low = [1e300, 1e300, 1e300]
@@ -76,6 +79,8 @@ def mesh_identity(path: Path) -> dict:
     cells = set()
     for record in records:
         floats = struct.unpack("<12f", record[:48])
+        if not all(map(math.isfinite, floats[3:])):
+            raise SystemExit(f"{path} binary STL has a non-finite vertex")
         verts = (floats[3:6], floats[6:9], floats[9:12])
         edge_a = tuple(verts[1][i] - verts[0][i] for i in range(3))
         edge_b = tuple(verts[2][i] - verts[0][i] for i in range(3))
@@ -90,6 +95,8 @@ def mesh_identity(path: Path) -> dict:
                 low[axis] = min(low[axis], vert[axis])
                 high[axis] = max(high[axis], vert[axis])
             cells.add(tuple(int(round(vert[axis] / OCCUPANCY_MM)) for axis in range(3)))
+    if area == 0:
+        raise SystemExit(f"{path} binary STL has no positive-area triangles")
     for record in sorted(records):
         digest.update(record)
     occupancy = hashlib.sha256()

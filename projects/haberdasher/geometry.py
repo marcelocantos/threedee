@@ -30,6 +30,7 @@ scale; dividing his side-2 diagram by 2 does not change the cuts.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import sympy as sp
@@ -240,39 +241,24 @@ def _turn_sign(verts: list) -> sp.Expr:
     return sign
 
 
-def _strictly_inside(poly: list, p, ) -> bool:
-    n = len(poly)
-    for i in range(n):
-        if _cross(poly[i], poly[(i + 1) % n], p) <= 0:
-            return False
-    return True
-
-
-def _proper_crossing(a, b, c, d) -> bool:
-    c1 = _cross(a, b, c)
-    c2 = _cross(a, b, d)
-    c3 = _cross(c, d, a)
-    c4 = _cross(c, d, b)
-    if c1 == 0 or c2 == 0 or c3 == 0 or c4 == 0:
-        return False
-    return sp.sign(c1) != sp.sign(c2) and sp.sign(c3) != sp.sign(c4)
+def _separating_edge(poly, other) -> bool:
+    return any(
+        a != b and all(_cross(a, b, p) <= 0 for p in other)
+        for a, b in zip(poly, poly[1:] + poly[:1])
+    )
 
 
 def interior_disjoint(polys: list[list]) -> bool:
-    """Exact predicate for strictly convex polygons. Shared boundary is allowed."""
-    for i in range(len(polys)):
-        for j in range(i + 1, len(polys)):
-            a, b = polys[i], polys[j]
-            for p in a:
-                if _strictly_inside(b, p):
-                    return False
-            for p in b:
-                if _strictly_inside(a, p):
-                    return False
-            for i1 in range(len(a)):
-                for j1 in range(len(b)):
-                    if _proper_crossing(a[i1], a[(i1 + 1) % len(a)], b[j1], b[(j1 + 1) % len(b)]):
-                        return False
+    """Exact predicate for CCW convex polygons, allowing boundary contact."""
+    solid = [
+        poly for poly in polys
+        if any(_cross(poly[i - 1], point, poly[(i + 1) % len(poly)]) != 0 for i, point in enumerate(poly))
+    ]
+    for i, a in enumerate(solid):
+        for b in solid[i + 1:]:
+            # Either polygon can supply a supporting edge separating the pair.
+            if not (_separating_edge(a, b) or _separating_edge(b, a)):
+                return False
     return True
 
 
@@ -555,10 +541,12 @@ def write_json(path: Path, doc: dict | None = None) -> None:
 
 
 def inset_polygon(poly: list[tuple[float, float]], distance: float) -> list[tuple[float, float]]:
-    """Mitered inward offset of a CCW convex polygon."""
-    if distance < 0:
-        raise ValueError("distance must be non-negative")
+    """Mitered inward offset of a CCW convex polygon with all edges intact."""
+    if not math.isfinite(distance) or distance < 0:
+        raise ValueError("distance must be finite and non-negative")
     n = len(poly)
+    if n < 3:
+        raise ValueError("an inset needs at least three vertices")
     lines = []
     for i in range(n):
         x0, y0 = poly[i]
@@ -579,7 +567,16 @@ def inset_polygon(poly: list[tuple[float, float]], distance: float) -> list[tupl
         t = ((x1 - x0) * dy1 - (y1 - y0) * dx1) / den
         return (x0 + t * dx0, y0 + t * dy0)
 
-    return [meet(i, (i + 1) % n) for i in range(n)]
+    inset = [meet(i, (i + 1) % n) for i in range(n)]
+    for i, (_, _, dx, dy) in enumerate(lines):
+        x0, y0 = inset[i - 1]
+        x1, y1 = inset[i]
+        # The corners on this line must still occur in the edge's original
+        # direction. Once they pass one another the apparent miter is invalid.
+        span = (x1 - x0) * dx + (y1 - y0) * dy
+        if span <= 0 or not math.isfinite(span):
+            raise ValueError("inset collapses or reverses an edge")
+    return inset
 
 
 def signed_distance(container: list[tuple[float, float]], point: tuple[float, float]) -> float:
@@ -609,7 +606,10 @@ def tiles_fit(dissection: dict, kerf_mm: float, side_mm: float) -> bool:
     for piece in dissection["pieces"]:
         for key, pocket in (("triangle", triangle), ("square", square)):
             raw = [(scale * x, scale * y) for x, y in piece[key]]
-            tile = inset_polygon(raw, kerf_mm)
+            try:
+                tile = inset_polygon(raw, kerf_mm)
+            except ValueError:
+                return False
             for vertex in tile:
                 if signed_distance(pocket, vertex) < kerf_mm * 0.98:
                     return False

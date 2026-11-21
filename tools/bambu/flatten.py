@@ -45,8 +45,10 @@ def load_index(root: Path) -> tuple[dict, dict]:
                 data = json.loads(Path(f).read_text())
             except Exception:
                 continue
+            if not isinstance(data, dict):
+                continue
             name = data.get("name")
-            if not name:
+            if not isinstance(name, str) or not name:
                 continue
             idx[(sub, name)] = data
             by_name.setdefault(name, data)

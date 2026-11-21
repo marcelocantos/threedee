@@ -5,9 +5,9 @@
 Haberdasher's hinged proof stays in ``projects/haberdasher``. The three
 dissections added here are rational. Overlap is decided by triangulating
 each piece and applying the convex interior test to triangles from
-different pieces, in exact rational arithmetic. A half-turn is allowed
-only when the disk it sweeps misses every other piece, which makes every
-intermediate angle disjoint, not only the samples.
+different pieces, in exact rational arithmetic. Translations are checked
+over their full swept area. A half-turn is allowed only when the disk it
+sweeps misses every other piece.
 
 Perigal is not a hinge. Two quadrilaterals turn by a half-turn in a clear
 disk; the other pieces translate.
@@ -92,18 +92,6 @@ def _blocks(tri, p) -> bool:
     return all(_cross(tri[i], tri[(i + 1) % 3], p) >= 0 for i in range(3))
 
 
-def _strict(poly, p) -> bool:
-    return all(_cross(poly[i], poly[(i + 1) % len(poly)], p) > 0 for i in range(len(poly)))
-
-
-def _proper(a, b, c, d) -> bool:
-    c1, c2 = _cross(a, b, c), _cross(a, b, d)
-    c3, c4 = _cross(c, d, a), _cross(c, d, b)
-    if 0 in (c1, c2, c3, c4):
-        return False
-    return (c1 > 0) != (c2 > 0) and (c3 > 0) != (c4 > 0)
-
-
 def _triangulate(ring):
     poly = list(ring)
     tris = []
@@ -136,22 +124,29 @@ def _triangulate(ring):
     return tris
 
 
+def _separating_edge(tri, other) -> bool:
+    # Each edge supports its CCW triangle on the left. A triangle entirely
+    # on the right or on the line has disjoint interior.
+    return any(
+        all(_cross(a, b, p) <= 0 for p in other)
+        for a, b in zip(tri, tri[1:] + tri[:1])
+    )
+
+
 def _overlaps(rings) -> bool:
     groups = [_triangulate(ring) for ring in rings]
     for i in range(len(groups)):
         for j in range(i + 1, len(groups)):
             for tri in groups[i]:
                 for other in groups[j]:
-                    if any(_strict(other, p) for p in tri) or any(_strict(tri, p) for p in other):
+                    if not (_separating_edge(tri, other) or _separating_edge(other, tri)):
                         return True
-                    for a in range(3):
-                        for b in range(3):
-                            if _proper(tri[a], tri[(a + 1) % 3], other[b], other[(b + 1) % 3]):
-                                return True
     return False
 
 
 def _on_segment(a, b, p) -> bool:
+    if a == b:
+        return p == a
     if _cross(a, b, p) != 0:
         return False
     dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])
@@ -161,22 +156,53 @@ def _on_segment(a, b, p) -> bool:
     return dot <= length2
 
 
+def _point_covered(edges, point) -> bool:
+    inside = False
+    x, y = point
+    for a, b in edges:
+        if _on_segment(a, b, point):
+            return True
+        x0, y0 = a
+        x1, y1 = b
+        if (y0 > y) != (y1 > y):
+            xhit = x0 + (x1 - x0) * F(y - y0) / (y1 - y0)
+            if x < xhit:
+                inside = not inside
+    return inside
+
+
 def _covers(outline, ring) -> bool:
-    """Boundary counts as inside. The outline may be non-convex."""
-    n = len(outline)
-    for point in ring:
-        if any(_on_segment(outline[i], outline[(i + 1) % n], point) for i in range(n)):
+    """Every piece edge lies in the closed region of a possibly concave outline."""
+    edges = list(zip(outline, outline[1:] + outline[:1]))
+    if not all(_point_covered(edges, point) for point in ring):
+        return False
+    for a, b in zip(ring, ring[1:] + ring[:1]):
+        if a == b:
             continue
-        inside = False
-        for i in range(n):
-            x0, y0 = outline[i]
-            x1, y1 = outline[(i + 1) % n]
-            if (y0 > point[1]) != (y1 > point[1]):
-                xhit = (x1 - x0) * (point[1] - y0) / (y1 - y0) + x0
-                if point[0] < xhit:
-                    inside = not inside
-        if not inside:
-            return False
+        # Split at every boundary intersection, including collinear edge
+        # endpoints. Between cuts, the midpoint decides the whole interval.
+        axis = 0 if a[0] != b[0] else 1
+        span = F(b[axis] - a[axis])
+        cuts = {F(0), F(1)}
+        for p, q in edges:
+            before, after = _cross(a, b, p), _cross(a, b, q)
+            if before * after > 0:
+                continue
+            if before == after:
+                crossings = (p[axis], q[axis])
+            else:
+                ratio = F(before) / (before - after)
+                crossings = (p[axis] + ratio * (q[axis] - p[axis]),)
+            for coordinate in crossings:
+                fraction = (coordinate - a[axis]) / span
+                if 0 < fraction < 1:
+                    cuts.add(fraction)
+        ordered_cuts = sorted(cuts)
+        for start, end in zip(ordered_cuts, ordered_cuts[1:]):
+            mid = (start + end) / 2
+            point = tuple(p + mid * (q - p) for p, q in zip(a, b))
+            if not _point_covered(edges, point):
+                return False
     return True
 
 
@@ -221,15 +247,34 @@ def _dist2(p, a, b):
     return (p[0] - qx) ** 2 + (p[1] - qy) ** 2
 
 
-def _lerp(a, b, u):
-    return tuple((x0 + u * (x1 - x0), y0 + u * (y1 - y0)) for (x0, y0), (x1, y1) in zip(a, b))
+def _swept_triangle_overlaps(tri, other, dx, dy) -> bool:
+    # Sweeping a triangle along a segment forms a convex polygon. Its edge
+    # directions come from the triangle and the translation. Project both
+    # shapes on the normals to all these edges and the obstacle's edges.
+    directions = [
+        (x1 - x0, y1 - y0)
+        for ring in (tri, other)
+        for (x0, y0), (x1, y1) in zip(ring, ring[1:] + ring[:1])
+    ]
+    if dx or dy:
+        directions.append((dx, dy))
+    for ex, ey in directions:
+        moving = [ex * y - ey * x for x, y in tri]
+        fixed = [ex * y - ey * x for x, y in other]
+        travel = ex * dy - ey * dx
+        if max(moving) + max(0, travel) <= min(fixed) or max(fixed) <= min(moving) + min(0, travel):
+            return False
+    return True
 
 
 def _segment_clear(a, b, turn, obstacles) -> None:
     if turn == 0:
-        for k in range(9):
-            if _overlaps([_lerp(a, b, _f(k, 8)), *obstacles]):
-                raise RuntimeError(f"translation overlaps at {k}/8")
+        if not a:
+            return
+        dx, dy = b[0][0] - a[0][0], b[0][1] - a[0][1]
+        fixed = [tri for obstacle in obstacles for tri in _triangulate(obstacle)]
+        if any(_swept_triangle_overlaps(tri, other, dx, dy) for tri in _triangulate(a) for other in fixed):
+            raise RuntimeError("translation overlaps another piece")
         return
     if turn != 1:
         raise RuntimeError(f"unsupported turn {turn}")

@@ -53,7 +53,10 @@ def build_pair(spec: dict):
     Callers that already passed the log use spec_from_log. A planted
     mutant calls this directly with a nominal or a negated angle.
     """
-    alpha = math.radians(_f(spec["angle_deg"]))
+    degrees = _f(spec["angle_deg"])
+    if not -90 < degrees < 90:
+        raise ValueError("flank angle must stay inside (-90, 90) degrees")
+    alpha = math.radians(degrees)
     neck = _f(spec["neck_mm"])
     depth = _f(spec["depth_mm"])
     length = _f(spec["length_mm"])
@@ -68,8 +71,6 @@ def build_pair(spec: dict):
 
     tan_a = math.tan(alpha)
     cos_a = math.cos(alpha)
-    if cos_a <= 0:
-        raise ValueError("flank angle must stay inside (-90, 90) degrees")
     half = neck / 2
     tip_half = half + depth * tan_a
     if tip_half <= 0:

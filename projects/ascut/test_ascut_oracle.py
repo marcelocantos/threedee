@@ -11,11 +11,15 @@ fail that comparison.
 from __future__ import annotations
 
 import json
+import math
+import random
+import stat
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+import pytest
 import sympy as sp
 
 HERE = Path(__file__).resolve().parent
@@ -248,6 +252,127 @@ def test_cli_refuses_an_uncalibrated_gauge():
         assert completed.returncode == 2
         assert "uncalibrated" in completed.stderr
         assert list(Path(tmp).iterdir()) == []
+
+
+@pytest.mark.parametrize("existing", [False, True], ids=["new-output", "existing-output"])
+def test_cli_refuses_a_collapsed_gauge_without_publishing_the_mate(tmp_path, existing):
+    raw = json.loads(GAUGE_PATH.read_text())
+    raw["design"]["width"]["value"] = "0"
+    bad_gauge = tmp_path / "gauge.json"
+    bad_gauge.write_text(json.dumps(raw))
+    output = tmp_path / "parts"
+    before = {"male.step": b"last exported mate", "notes.txt": b"bench measurements"} if existing else {}
+    if existing:
+        output.mkdir()
+        for name, data in before.items():
+            (output / name).write_bytes(data)
+
+    completed = subprocess.run(
+        [sys.executable, str(HERE / "ascut.py"), "--out", str(output), "--gauge", str(bad_gauge)],
+        cwd=HERE,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    names = {path.name for path in output.iterdir()} if output.exists() else set()
+    assert names == set(before)
+    assert {name: (output / name).read_bytes() for name in names} == before
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "gauge sizes must be positive"
+
+
+def test_cli_refusal_creates_no_missing_parent_directories(tmp_path):
+    # The refusal happens while building the gauge, after both logs resolve.
+    raw = json.loads(GAUGE_PATH.read_text())
+    raw["design"]["width"]["value"] = "0"
+    bad_gauge = tmp_path / "gauge.json"
+    bad_gauge.write_text(json.dumps(raw))
+    output = tmp_path / "nested" / "deeper" / "parts"
+
+    completed = subprocess.run(
+        [sys.executable, str(HERE / "ascut.py"), "--out", str(output), "--gauge", str(bad_gauge)],
+        cwd=HERE,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert completed.stderr.strip() == "gauge sizes must be positive"
+    assert [path.name for path in tmp_path.iterdir()] == ["gauge.json"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission modes")
+def test_cli_reexport_preserves_existing_artifact_modes(tmp_path):
+    files = {"male.step": 0o640, "section.svg": 0o600, "notes.txt": 0o600}
+    original = "previous contents\n"
+    for name, mode in files.items():
+        path = tmp_path / name
+        path.write_text(original)
+        path.chmod(mode)
+
+    completed = subprocess.run(
+        [sys.executable, str(HERE / "ascut.py"), "--out", str(tmp_path)],
+        cwd=HERE,
+        umask=0o022,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert (tmp_path / "male.step").read_text().startswith("ISO-10303-21")
+    assert "<svg" in (tmp_path / "section.svg").read_text()
+    assert (tmp_path / "notes.txt").read_text() == original
+    assert {name: stat.S_IMODE((tmp_path / name).stat().st_mode) for name in files} == files
+
+
+@pytest.mark.parametrize("turns", [-1, 1])
+def test_cli_refuses_wrapped_flank_angles(tmp_path, turns):
+    raw = json.loads(DOVETAIL_PATH.read_text())
+    flank = next(feature for feature in raw["features"] if feature["id"] == "tail.flank_angle")
+    flank["reading"]["value"] = str(sp.Rational(57, 4) + turns * 360)
+    log = tmp_path / "wrapped.json"
+    log.write_text(json.dumps(raw))
+    output = tmp_path / "parts"
+    completed = subprocess.run(
+        [sys.executable, str(HERE / "ascut.py"), "--out", str(output), "--dovetail", str(log)],
+        cwd=HERE,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert completed.stderr.strip() == "flank angle must stay inside (-90, 90) degrees"
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("angle", [-90, 90, math.nan, -math.inf, math.inf])
+def test_invalid_flank_angles_are_refused_before_the_kernel(monkeypatch, angle):
+    spec = dovetail.spec_from_log(logmod.load(DOVETAIL_PATH))
+    spec["angle_deg"] = angle
+
+    def polygon(*points):
+        raise AssertionError("invalid angle reached the CAD kernel")
+
+    monkeypatch.setattr(dovetail, "Polygon", polygon)
+    with pytest.raises(ValueError, match="flank angle must stay inside"):
+        dovetail.build_pair(spec)
+
+
+def test_valid_signed_slopes_match_the_exact_male_volume():
+    spec = dovetail.spec_from_log(logmod.load(DOVETAIL_PATH))
+    neck, shoulder, base, depth, length = (spec[f"{key}_mm"] for key in ("neck", "shoulder", "base", "depth", "length"))
+    rng = random.Random(76231)
+    slopes = [sp.Rational(0), *(sp.Rational(rng.randrange(-125, 501), 1000) for _ in range(16))]
+    for slope in slopes:
+        spec["angle_deg"] = math.degrees(math.atan(float(slope)))
+        male, _ = dovetail.build_pair(spec)
+        # Integrate the linear flank separation over the depth, then add
+        # the base block. The reference needs no inverse trig or geometry API.
+        expected = length * (base * (neck + 2 * shoulder) + neck * depth + slope * depth**2)
+        # 1e-7 mm³ covers CAD integration and trig roundoff at this volume.
+        assert male.volume == pytest.approx(float(expected), rel=0, abs=1e-7), slope
 
 
 def test_fourteen_point_two_six_is_the_band_edge():
