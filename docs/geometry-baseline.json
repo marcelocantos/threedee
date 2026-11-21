@@ -391,9 +391,9 @@
         "face_count": 1541
       },
       "scale-rails-installed.stl": {
-        "triangles": 771698,
-        "mesh_sha256": "3f207819c8f2a1ffcd71dca55ac3ee6efbe98a8e919861d11f404a0e4492925d",
-        "raw_sha256": "292c85ce1ce42072aebd6efc569840a7d27ed5e38dc6338ec8de320aa480b586",
+        "triangles": 772002,
+        "mesh_sha256": "202d54d79cb4efe45f69c524c5bc842f3d2a6addf5b6582267f250472f7f9207",
+        "raw_sha256": "72e55116d7d2d76be8fa1a79db1a74920d2d812c0a8d4d25d7d0fe072a89c81a",
         "occupancy_mm": 1.0,
         "occupancy_sha256": "c9917f70fbd33e1e4d14f696f6930abbb21bc46761be099c060d5b8053522c92",
         "mesh_bbox_min": [
@@ -427,9 +427,9 @@
         "face_count": 1643
       },
       "scale-rails-plate.stl": {
-        "triangles": 770396,
-        "mesh_sha256": "ea20fb0159c1b0c2a4d8f63ae3b42e23d113958c2e56c1885d24ab47ff39f812",
-        "raw_sha256": "2d3d95aa8f57e21ac5df398758b7d2efc7e9a992ac50b3f993f81f97da9a8091",
+        "triangles": 770698,
+        "mesh_sha256": "2c752c3bcc7c8b4ab50b76adba98a114e5e4ba1ab572b9b0a212976442816541",
+        "raw_sha256": "22ce854b829f0d355a7426c0f42cfb7de133f014851b86f86bdd80f3e4f70902",
         "occupancy_mm": 1.0,
         "occupancy_sha256": "0b5e9a6c6123f89dae21a7ee437f479a12ba040bb1911d026e14bcf88a9f1682",
         "mesh_bbox_min": [
@@ -575,6 +575,6 @@
       "projects/scale-rails/scale_rails.py:scale-rails-plate.stl": 288,
       "projects/scale-rails/scale_rails.py:scale-rails-installed.stl": 290
     },
-    "note": "The parts records are from the pre-refactor baseline in e68f493. The aggregate max_abs fields describe the original check. The current check uses artifact-specific STEP allowances from the archived pre-refactor measurements and the fresh merge-base controls in geometry-after.json. Each STEP allowance is the largest observed departure from the committed value plus the spread among the new controls for that metric. Each scale-rail triangle allowance uses the larger of the pre-refactor excursion or repeat spread, plus the largest gap between adjacent observed triangle counts. Bounding boxes, face counts, and the two mesh occupancy hashes compare exactly."
+    "note": "The parts records are from the pre-refactor baseline in e68f493, with two scale-rail STL records refreshed for deterministic fillet input order (T29, Pueue 1258). All six ordered samples had 772002 installed and 770698 plate triangles. Their triangle allowances retain the original margins from the pre-refactor and repeat measurements in geometry-after.json. The aggregate max_abs fields describe the original check. Each STEP allowance is the largest observed departure from the committed value plus the spread among the new controls for that metric. Bounding boxes, face counts, and the two mesh occupancy hashes compare exactly."
   }
 }

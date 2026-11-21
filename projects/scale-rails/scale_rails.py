@@ -338,11 +338,13 @@ def creases(part):
     for f in part.faces():
         for e in f.edges():
             faces.setdefault(e, []).append(f)
-    out = set()
+    # Preserve traversal order. Hash order changes the input to OCCT fillets
+    # and can change how their surfaces are parameterized for tessellation.
+    out = []
     for e, fs in faces.items():
         p = e @ 0.5
         if len(fs) == 2 and fs[0].normal_at(p).dot(fs[1].normal_at(p)) < 0.999:
-            out.add(e)
+            out.append(e)
     return out
 
 
@@ -533,7 +535,7 @@ for x in back_slot_xs:
     slot_edges += [e for e in cradle.edges()
                    if on_planes(e, "Y", (length - back_thickness, length)) and not on_bed(e)
                    and inside(e, x=(x - slot_width / 2, x + slot_width / 2), z=(-height, -height + back_slot_h))]
-cradle = blend(cradle, list(set(slot_edges)), slot_round, fillet, "slot")
+cradle = blend(cradle, list(dict.fromkeys(slot_edges)), slot_round, fillet, "slot")
 cradle = cradle.clean()
 
 # The screw holes must not move: the shelf is drilled.

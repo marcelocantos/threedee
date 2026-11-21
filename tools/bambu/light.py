@@ -69,7 +69,10 @@ def main(argv=None) -> int:
     finally:
         client.loop_stop()
     print("done", flush=True)
-    return 0 if ack else 1
+    result = ack.get("result")
+    if not ack or (result is not None and str(result).lower() != "success"):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

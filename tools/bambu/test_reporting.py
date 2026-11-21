@@ -122,6 +122,21 @@ def test_light_returns_failure_without_an_ack(bambu_command, capsys, acknowledge
     assert code == (0 if acknowledged else 1)
 
 
+@pytest.mark.parametrize("result, expected", [("FAILED", 1), ("SUCCESS", 0)])
+def test_light_returns_the_acknowledged_result(bambu_command, capsys, result, expected):
+    reason = "light command rejected" if expected else ""
+    report = {"system": {"command": "ledctrl", "result": result, "reason": reason}}
+    light, client = bambu_command("light", report)
+
+    code = light.main(["off", "--wait", "1"])
+
+    output = capsys.readouterr().out
+    assert f"ACK {{'command': 'ledctrl', 'result': {result!r}, 'reason': {reason!r}" in output
+    assert output.endswith("done\n")
+    assert client.stopped
+    assert code == expected
+
+
 @pytest.mark.parametrize(
     "instant, expected",
     [
